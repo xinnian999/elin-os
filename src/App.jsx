@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
+  ArrowSquareOut,
   Article,
   BookmarkSimple,
   BookOpenText,
@@ -8,7 +9,6 @@ import {
   CheckCircle,
   Cube,
   GithubLogo,
-  LinkSimple,
   List,
   Moon,
   NotePencil,
@@ -16,7 +16,7 @@ import {
   Robot,
   Sparkle,
   Sun,
-  UsersThree,
+  Users,
   X,
 } from "@phosphor-icons/react";
 
@@ -91,8 +91,19 @@ const promptSuggestions = [
   { label: "找一篇关于 Agent 的文章", icon: BookOpenText },
 ];
 
+const bookmarkLinks = [
+  { label: "少数派", href: "https://sspai.com" },
+  { label: "图灵社区", href: "https://www.ituring.com.cn" },
+  { label: "RSSHub", href: "https://rsshub.app" },
+  { label: "Agora", href: "https://agora.io" },
+  { label: "NeurIPS", href: "https://neurips.cc" },
+];
+
+const neighbors = ["Wayne", "小胡", "yuko", "Keso", "Shawn"];
+
 function scrollToId(id) {
-  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  document.getElementById(id)?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
 }
 
 function getAgentResponse(question) {
@@ -126,7 +137,7 @@ function Header({ menuOpen, setMenuOpen }) {
     <header className="site-header">
       <a className="brand" href="#home" aria-label="返回首页">
         <span>Elin OS</span>
-        <Sparkle size={16} weight="fill" aria-hidden="true" />
+        <Sparkle size={16} weight="regular" aria-hidden="true" />
       </a>
 
       <nav className={`main-nav ${menuOpen ? "is-open" : ""}`} aria-label="主导航">
@@ -160,9 +171,86 @@ function Header({ menuOpen, setMenuOpen }) {
 }
 
 function AgentHero() {
+  const heroRef = useRef(null);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const root = heroRef.current;
+    if (!root) return undefined;
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+    let enabled = finePointer.matches && !reducedMotion.matches;
+    let frame = 0;
+    let bounds = null;
+    let nextX = 0;
+    let nextY = 0;
+
+    const render = () => {
+      frame = 0;
+      root.style.setProperty("--bg-x", `${(-nextX * 6).toFixed(2)}px`);
+      root.style.setProperty("--bg-y", `${(-nextY * 4).toFixed(2)}px`);
+      root.style.setProperty("--title-x", `${(nextX * 0.8).toFixed(2)}px`);
+      root.style.setProperty("--title-y", `${(nextY * 0.5).toFixed(2)}px`);
+      root.style.setProperty("--card-x", `${(nextX * 1.4).toFixed(2)}px`);
+      root.style.setProperty("--card-y", `${(nextY * 1).toFixed(2)}px`);
+      root.style.setProperty("--cursor-x", `${((nextX + 1) * 50).toFixed(2)}%`);
+      root.style.setProperty("--cursor-y", `${((nextY + 1) * 50).toFixed(2)}%`);
+    };
+
+    const schedule = () => {
+      if (!frame) frame = window.requestAnimationFrame(render);
+    };
+
+    const reset = () => {
+      nextX = 0;
+      nextY = 0;
+      root.dataset.motionActive = "false";
+      schedule();
+    };
+
+    const refreshPolicy = () => {
+      enabled = finePointer.matches && !reducedMotion.matches;
+      if (!enabled) reset();
+    };
+
+    const handleEnter = (event) => {
+      if (!enabled || event.pointerType !== "mouse") return;
+      bounds = root.getBoundingClientRect();
+      root.dataset.motionActive = "true";
+    };
+
+    const handleMove = (event) => {
+      if (!enabled || event.pointerType !== "mouse") return;
+      if (!bounds) bounds = root.getBoundingClientRect();
+      nextX = Math.max(-1, Math.min(1, ((event.clientX - bounds.left) / bounds.width) * 2 - 1));
+      nextY = Math.max(-1, Math.min(1, ((event.clientY - bounds.top) / bounds.height) * 2 - 1));
+      schedule();
+    };
+
+    const handleResize = () => {
+      bounds = null;
+    };
+
+    root.addEventListener("pointerenter", handleEnter, { passive: true });
+    root.addEventListener("pointermove", handleMove, { passive: true });
+    root.addEventListener("pointerleave", reset, { passive: true });
+    window.addEventListener("resize", handleResize, { passive: true });
+    reducedMotion.addEventListener?.("change", refreshPolicy);
+    finePointer.addEventListener?.("change", refreshPolicy);
+
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      root.removeEventListener("pointerenter", handleEnter);
+      root.removeEventListener("pointermove", handleMove);
+      root.removeEventListener("pointerleave", reset);
+      window.removeEventListener("resize", handleResize);
+      reducedMotion.removeEventListener?.("change", refreshPolicy);
+      finePointer.removeEventListener?.("change", refreshPolicy);
+    };
+  }, []);
 
   const ask = (value = question) => {
     const nextQuestion = value.trim();
@@ -177,24 +265,30 @@ function AgentHero() {
   };
 
   return (
-    <section className="hero" id="home">
+    <section className="hero" id="home" ref={heroRef} data-motion-active="false">
       <img
-        className="memory-background"
-        src="/assets/constellation-memory-bg.png"
+        className="constellation-plane"
+        src="/assets/constellation-memory-bg-v2.png"
         alt=""
         aria-hidden="true"
       />
+      <div className="cursor-glow" aria-hidden="true" />
       <div className="orbit-label orbit-label-one">想法</div>
       <div className="orbit-label orbit-label-two">作品</div>
-      <div className="orbit-label orbit-label-three">记忆</div>
-      <div className="orbit-label orbit-label-four">连接</div>
-      <div className="orbit-label orbit-label-five">兴趣</div>
+      <div className="orbit-label orbit-label-three">文字</div>
+      <div className="orbit-label orbit-label-four">灵感</div>
+      <div className="orbit-label orbit-label-five">记忆</div>
+      <div className="orbit-label orbit-label-six">连接</div>
+      <div className="orbit-label orbit-label-seven">兴趣</div>
 
       <div className="hero-inner">
-        <h1>Elin OS</h1>
-        <p className="hero-subtitle">把我的作品、文字、思考和数字分身放在同一个地方。</p>
+        <div className="hero-title-plane">
+          <h1>Elin OS</h1>
+          <p className="hero-subtitle">把我的作品、文字、思考和数字分身放在同一个地方。</p>
+        </div>
 
-        <div className={`agent-console ${answer || loading ? "has-answer" : ""}`}>
+        <div className="agent-console-plane">
+          <div className={`agent-console ${answer || loading ? "has-answer" : ""}`}>
           <form
             className="agent-form"
             onSubmit={(event) => {
@@ -202,7 +296,7 @@ function AgentHero() {
               ask();
             }}
           >
-            <Sparkle className="agent-sparkle" size={27} weight="fill" aria-hidden="true" />
+            <Sparkle className="agent-sparkle" size={29} weight="regular" aria-hidden="true" />
             <label className="sr-only" htmlFor="agent-question">关于 Elin，你想知道什么？</label>
             <input
               id="agent-question"
@@ -212,7 +306,7 @@ function AgentHero() {
               autoComplete="off"
             />
             <button className="send-button" type="submit" aria-label="发送问题" disabled={!question.trim() || loading}>
-              <PaperPlaneTilt size={22} weight="fill" />
+              <PaperPlaneTilt size={22} weight="regular" />
             </button>
           </form>
 
@@ -244,6 +338,7 @@ function AgentHero() {
               </button>
             </div>
           )}
+          </div>
         </div>
 
         <button className="agent-capability" type="button" onClick={() => ask("你能做什么？")}>
@@ -256,7 +351,7 @@ function AgentHero() {
   );
 }
 
-function UpdatesPanel() {
+function UpdatesPanel({ embedded = false }) {
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
@@ -269,7 +364,7 @@ function UpdatesPanel() {
   }, [selected]);
 
   return (
-    <section className="panel updates-panel" id="updates" aria-labelledby="updates-title">
+    <section className={`${embedded ? "dashboard-column is-embedded" : "panel"} updates-panel`} id="updates" aria-labelledby="updates-title">
       <div className="panel-heading">
         <span className="heading-dot" />
         <h2 id="updates-title">最近更新</h2>
@@ -280,7 +375,7 @@ function UpdatesPanel() {
           const Icon = item.icon;
           return (
             <button className="timeline-item" type="button" key={item.title} onClick={() => setSelected(item)}>
-              <span className="timeline-icon"><Icon size={19} weight="fill" /></span>
+              <span className="timeline-icon"><Icon size={19} weight="regular" /></span>
               <span className="timeline-copy">
                 <span className={`item-type ${item.tone}`}>{item.type}</span>
                 <strong>{item.title}</strong>
@@ -387,23 +482,54 @@ function WorksPanel() {
   );
 }
 
-function MoreOfElin() {
+function HomeDashboard() {
   return (
-    <section className="more-grid" id="friends" aria-label="更多内容">
-      <article>
-        <span><Sparkle size={18} weight="fill" /> 正在思考</span>
-        <p>如何让记忆成为可被理解的结构？</p>
-        <p>在不打扰的前提下提供恰到好处的帮助。</p>
+    <section className="panel home-dashboard" id="friends" aria-label="Elin OS 最近动态与收藏">
+      <UpdatesPanel embedded />
+
+      <article className="dashboard-column thoughts-column">
+        <div className="dashboard-heading">
+          <span className="heading-dot" />
+          <h2>正在思考</h2>
+        </div>
+        <div className="thought-list">
+          <p>如何让记忆成为可被理解的结构？</p>
+          <p>在不打扰的前提下提供恰到好处的帮助。</p>
+          <p>把复杂的想法写得更简单。</p>
+        </div>
+        <button className="dashboard-more" type="button" onClick={() => scrollToId("updates")}>
+          更多想法 <ArrowRight size={14} />
+        </button>
       </article>
-      <article>
-        <span><BookmarkSimple size={18} /> 收藏夹</span>
-        <a href="https://sspai.com" target="_blank" rel="noreferrer">少数派 <LinkSimple size={14} /></a>
-        <a href="https://rsshub.app" target="_blank" rel="noreferrer">RSSHub <LinkSimple size={14} /></a>
+
+      <article className="dashboard-column bookmark-column">
+        <div className="dashboard-heading">
+          <BookmarkSimple size={19} />
+          <h2>收藏夹</h2>
+        </div>
+        <div className="dashboard-link-list">
+          {bookmarkLinks.map((item) => (
+            <a href={item.href} target="_blank" rel="noreferrer" key={item.label}>
+              <span>{item.label}</span><ArrowSquareOut size={13} />
+            </a>
+          ))}
+        </div>
+        <a className="dashboard-more" href="https://sspai.com" target="_blank" rel="noreferrer">
+          查看全部 <ArrowRight size={14} />
+        </a>
       </article>
-      <article>
-        <span><UsersThree size={18} /> 邻居们</span>
-        <p>Wayne · 小胡 · yuko · Keso</p>
-        <a href="#friends">查看全部友链 <ArrowRight size={14} /></a>
+
+      <article className="dashboard-column neighbor-column">
+        <div className="dashboard-heading">
+          <Users size={20} />
+          <h2>邻居们</h2>
+        </div>
+        <div className="neighbor-list">
+          {neighbors.map((neighbor) => <span key={neighbor}>{neighbor}</span>)}
+        </div>
+        <a className="dashboard-more" href="#friends">
+          查看全部 <ArrowRight size={14} />
+        </a>
       </article>
     </section>
   );
@@ -427,11 +553,8 @@ export function App() {
       <main>
         <AgentHero />
         <div className="content-shell">
-          <div className="primary-grid">
-            <UpdatesPanel />
-            <WorksPanel />
-          </div>
-          <MoreOfElin />
+          <HomeDashboard />
+          <WorksPanel />
         </div>
       </main>
       <footer id="about">

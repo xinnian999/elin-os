@@ -2,76 +2,45 @@
 
 ## Comparison target
 
-- Source visual truth: `reference/elin-os-home.png`
-- Browser-rendered implementation: `qa/implementation-final.png`
-- Full-view comparison: `qa/comparison-final.png`
-- Focused hero comparison: `qa/compare-hero.png`
-- Focused content comparison: `qa/compare-content.png`
-- Mobile evidence: `qa/mobile-menu.png`, `qa/mobile-works.png`
-- State: desktop homepage at scroll position 0, dark theme, Agent idle; mobile evidence covers open navigation and selected-work section.
+- Source visual truth: `/Users/huyilin/.codex/generated_images/01a01d70-b2d0-7d63-a989-594690d78fd3/exec-27d14d71-13fd-4615-a080-6b7ef43cc5da.png`
+- Final desktop render: `qa/final-desktop.png`
+- Combined same-state comparison: `qa/final-comparison.png`
+- Mobile render: `qa/final-mobile.png`
+- State: homepage at scroll position 0, dark theme, Agent idle.
 
 ## Viewport and normalization
 
-- Source pixels: 1536 x 1024.
-- Requested browser CSS viewport: 1536 x 1024 at device pixel ratio 1.
-- Browser content metrics: inner viewport 1536 x 1024; document content width 1521 because of the vertical scrollbar.
-- Implementation screenshot pixels: 1521 x 1014 as returned by the Codex in-app browser.
-- Density normalization: source was proportionally resized to 1521 x 1014 for the combined full-view and focused comparisons. No density scaling was needed for the implementation.
-- Mobile CSS viewport: 390 x 844; browser content screenshot 375 x 812 at device pixel ratio 1.
+- Source and desktop implementation were both compared at 1536 x 1024 CSS pixels.
+- Browser metrics at comparison time: 1536 x 1024 viewport, 1536 px document width, no horizontal overflow.
+- Mobile validation used 390 x 844 CSS pixels and reported a 390 px document width.
 
-## Full-view comparison evidence
+## Final comparison findings
 
-The combined image in `qa/comparison-final.png` shows the same information hierarchy and major geometry: 60 px navigation, centered Elin OS hero, conversational Agent console, restrained constellation background, and the paired recent-update / selected-work panels. The implementation preserves the reference's near-black, indigo, lilac, mint, and warm-white balance.
+The combined image in `qa/final-comparison.png` shows close alignment of the 60 px header, centered hero, 850 x 161 px Agent console, constellation density, 1454 x 385 px four-column dashboard, separators, and timeline rails. The homepage work module intentionally begins immediately below that reference-aligned first screen because the user asked for works to remain a major homepage module.
 
-The implementation intentionally continues with compact thinking, bookmark, and friend-link modules below the selected-work row. This extends the homepage beyond the reference viewport to honor the user's requirement that the site remain a personal notebook rather than a portfolio-only page.
-
-## Focused comparison evidence
-
-- `qa/compare-hero.png`: heading scale, subtitle width, console anatomy, prompt hierarchy, pill suggestions, and secondary Agent capability line align closely. The title uses a solid lilac instead of a rasterized gradient; this is a small intentional P3 simplification that preserves live text.
-- `qa/compare-content.png`: panel proportions, headings, timeline density, featured preview, project metadata, secondary project rows, dividers, and action colors align. Generated project previews use the selected visual direction and are sharp at their rendered sizes.
-
-## Required fidelity surfaces
-
-- Fonts and typography: Space Grotesk and Noto Sans SC provide matching geometric Latin display text and readable Chinese UI text. Sizes, weights, wrapping, and hierarchy match the source closely; no truncation is visible at the target viewport.
-- Spacing and layout rhythm: header, hero, console, content grid, panel padding, radii, dividers, and vertical rhythm align with the source. The lower personal modules are an intentional below-fold extension.
-- Colors and visual tokens: near-black background, low-contrast panel borders, lilac Agent emphasis, mint actions, and muted secondary text are consistent with the source and meet readable contrast in the tested states.
-- Image quality and asset fidelity: constellation background and all three project previews are real raster assets, not CSS or placeholder drawings. Crops are sharp and correctly fitted without stretching.
-- Copy and content: public identity is consistently `Elin`; navigation, Agent copy, recent updates, and Vue Form Craft / 小筑 / Niuma Code content match the approved product direction. No real name appears.
+- The Elin OS heading now uses a live lilac-to-white-to-blue gradient while retaining selectable text.
+- The constellation is a dedicated raster asset matched to the reference's left/right orbit composition and quiet central field.
+- The constellation, heading, console, and soft cursor glow respond to pointer movement; coarse-pointer and reduced-motion environments receive a stable version.
+- The recent-update timeline uses fixed rail, node, copy, and date columns. At 1536 px the copy begins at x=165 and dates align around x=578 across all three rows.
+- Reference-like outline icons are used for the brand sparkle, Agent prompt, send action, bookmarks, neighbors, and timeline entries.
 
 ## Interaction and accessibility evidence
 
-- Agent suggestion tested: `带我看看她的作品` returns a meaningful answer and its CTA moves to the selected-work section.
-- Vue Form Craft project preview opens a detail dialog with project copy and tags.
-- Recent article opens a readable content dialog.
-- Dialog close controls and Escape-key dismissal are implemented.
-- Mobile navigation opens, closes after selection, and reaches the responsive work section without horizontal overflow.
-- Browser console errors/warnings checked after final reload: none.
+- Pointer movement activated the hero motion state and produced independent transforms for the background, title, and console.
+- `带我看看她的作品` returned a realistic Agent answer; `查看精选作品` scrolled to the homepage work module.
+- Article and project dialogs, navigation anchors, sticky header, and mobile menu were previously exercised and remained intact after the visual pass.
+- Mobile navigation opens and closes at 390 px with no horizontal overflow.
+- `prefers-reduced-motion` and coarse-pointer media queries disable parallax.
+- Final browser console warning/error check: none.
 
-## Comparison history
+## Verification
 
-### Initial pass
+- `npm run build`: passed.
+- `npm run test:sites`: 4 of 4 tests passed.
+- `git diff --check`: passed.
 
-- [P2] Dialog dismissal semantics were ambiguous because the visual close control and backdrop shared the same accessible name, and Escape dismissal was missing.
-  - Fix: gave backdrop actions unique accessible labels and added Escape-key dismissal to article and project dialogs.
-  - Post-fix evidence: final browser interaction tests opened and closed both dialogs successfully; browser console remained empty.
+## Remaining product boundary
 
-### Final pass
-
-- No actionable P0, P1, or P2 visual, responsive, accessibility, or interaction findings remain.
-
-## Follow-up polish
-
-- [P3] A future brand pass could replace the solid lilac Elin OS heading with a dedicated raster wordmark if the exact source color transition is important.
-- [P3] Real production links, article bodies, and Agent/backend behavior remain intentionally mocked in this frontend prototype.
-
-## Implementation checklist
-
-- [x] Match selected desktop visual hierarchy.
-- [x] Add homepage selected-work module.
-- [x] Use real visual assets and icon-library icons.
-- [x] Make Agent, navigation, content previews, and project dialogs interactive.
-- [x] Validate responsive mobile layout and menu.
-- [x] Check browser console.
-- [x] Complete combined visual comparison.
+- [P3] Agent answers, articles, and external destinations are realistic frontend mock data. A later backend pass is still required for retrieval, identity, permissions, and real actions.
 
 final result: passed
