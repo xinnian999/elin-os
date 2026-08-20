@@ -445,7 +445,7 @@ function WorksPanel() {
       <div className="secondary-works">
         {secondary.map((work) => (
           <button className="secondary-work" type="button" key={work.id} onClick={() => setSelectedId(work.id)}>
-            <img src={work.image} alt="" />
+            <img src={work.image} alt={`${work.name} 产品界面预览`} />
             <span>
               <strong>{work.name}</strong>
               <small>{work.description}</small>

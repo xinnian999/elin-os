@@ -39,6 +39,18 @@ The combined image in `qa/final-comparison.png` shows close alignment of the 60 
 - `npm run test:sites`: 4 of 4 tests passed.
 - `git diff --check`: passed.
 
+## Works layout refinement
+
+- User reference state: `qa/works-reference-wide.png`.
+- Desktop implementation: `qa/works-layout-desktop-v2.png` at 1536 x 1024 CSS pixels.
+- Mobile implementation: `qa/works-layout-mobile-v2.png` at 390 x 844 CSS pixels.
+- Combined reference and implementation input: `qa/works-comparison-v2.png`.
+- The requested hierarchy is now explicit: Vue Form Craft is the only full-width featured item, with its preview enlarged from 180 px to a responsive 240-300 px height; 小筑 and Niuma Code are larger equal-width cards in a two-column desktop grid and a one-column mobile grid.
+- At 1536 px, the featured row measured 1392 x 332 px and the two secondary cards each measured 689 x 332 px. At 390 px, the secondary cards measured 332 px wide and stacked vertically. Neither viewport produced horizontal overflow.
+- The same-input comparison confirms that panel framing, dark palette, project imagery, typography, and mint actions remain consistent with the source while the thin secondary list rows are replaced by the user-requested larger card hierarchy.
+- All three project entry points opened the correct detail dialog. Close button, Escape, and backdrop close behavior passed; the browser console reported no errors.
+- No P0, P1, or P2 visual issues remained after the responsive pass.
+
 ## Remaining product boundary
 
 - [P3] Agent answers, articles, and external destinations are realistic frontend mock data. A later backend pass is still required for retrieval, identity, permissions, and real actions.
