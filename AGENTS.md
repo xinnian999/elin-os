@@ -27,4 +27,4 @@
 - 作品墙由线上配置驱动：公开页面从 `/api/works` 读取 Cloudflare KV 中的配置，配置不存在或接口异常时回退到仓库内置默认数据。
 - 管理入口固定为 `/admin`，不要在公开页面展示入口。管理密钥只能存为 Cloudflare Worker Secret，不得写入源码、配置文件或 GitHub。
 - 作品图片上传到 `elin-os-media` R2 Bucket，通过 `/media/*` 读取；作品文字、链接、排序和展示状态保存在 `elin-os-works` KV Namespace。
-- 主项目的 GitHub Star 在浏览器中通过 GitHub 公开仓库接口实时刷新；Worker 使用 Shields.io JSON 与 KV 缓存作为限流或网络异常时的回退，不要继续手工维护 Star 数字。
+- GitHub Star 统一由 `/api/works` 的 Worker 通过 Shields.io JSON 获取，并在 KV 中缓存 30 分钟；不要让浏览器直连 GitHub 公共 API，匿名共享限流会产生 403，也不要继续手工维护 Star 数字。

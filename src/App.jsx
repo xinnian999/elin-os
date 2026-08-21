@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, EnvelopeSimple, GithubLogo, MapPin, Star, X } from "@phosphor-icons/react";
-import { defaultProjects, fetchGithubStarCount, fetchProjects } from "./data/projects.js";
+import { defaultProjects, fetchProjects } from "./data/projects.js";
 
 function Tag({ children }) { return <span className="tag">{children}</span>; }
 
@@ -62,21 +62,8 @@ export function App() {
   useEffect(() => {
     const controller = new AbortController();
     fetchProjects(controller.signal)
-      .then(async ({ projects: nextProjects }) => {
-        const visibleProjects = nextProjects.filter((project) => project.visible !== false);
-        setProjects(visibleProjects);
-        const liveStars = await Promise.all(visibleProjects.map(async (project) => {
-          if (!project.featured) return [project.id, null];
-          try { return [project.id, await fetchGithubStarCount(project.githubUrl, controller.signal)]; }
-          catch { return [project.id, null]; }
-        }));
-        if (!controller.signal.aborted) {
-          const starMap = new Map(liveStars);
-          setProjects((current) => current.map((project) => {
-            const stars = starMap.get(project.id);
-            return typeof stars === "number" ? { ...project, stars } : project;
-          }));
-        }
+      .then(({ projects: nextProjects }) => {
+        setProjects(nextProjects.filter((project) => project.visible !== false));
       })
       .catch((error) => {
         if (error.name !== "AbortError") console.warn("使用内置作品配置：", error.message);
