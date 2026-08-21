@@ -1,26 +1,26 @@
-# Prototype Instructions
+# 原型开发说明
 
-Run the local server yourself and open the preview in the browser available to this environment. Do not give the user server-start instructions when you can run it.
+需要本地预览时，由 Agent 自行启动开发服务器，并在当前环境可用的浏览器中打开页面。能够自行完成时，不要让用户手动执行启动命令。
 
-Before making substantial visual changes, use the Product Design plugin's `get-context` skill when the visual source is unclear or no longer matches the current goal. When the user gives durable prototype-specific design feedback, preferences, or decisions, record them in `AGENTS.md`.
+进行较大范围的视觉改动前，如果视觉来源不清晰或已经不符合当前目标，先使用 Product Design 插件的 `get-context` skill。用户给出的、可长期复用的原型设计反馈、偏好或决策，应记录在本文件中。
 
-When implementing from a selected generated mock, treat that image as the source of truth for layout, component anatomy, density, spacing, color, typography, visible content, and hierarchy.
+根据已选定的生成稿实现页面时，以该图片为布局、组件结构、信息密度、间距、颜色、字体、可见内容和视觉层级的设计基准。
 
-Build app UI in `src/`. Cloudflare Worker deployment is configured only through `wrangler.jsonc`; run `npm run build` before publishing so `dist/client/index.html` and static assets are current.
+应用界面代码放在 `src/` 中。Cloudflare Worker 只通过 `wrangler.jsonc` 配置；发布前运行 `npm run build`，确认 `dist/client/index.html` 和静态资源均为最新产物。
 
-## Release workflow
+## 发版流程
 
-- Production releases use exactly one path: push the intended commit to GitHub's `main` branch, create a `v*` tag on that commit, and push the tag. The tag-triggered GitHub Action promotes that exact commit to the `release` branch; the connected Cloudflare Workers Builds integration builds and deploys only `release`.
-- A normal push to `main` must not deploy production. Do not push or modify the `release` branch manually.
-- Do not use OpenAI Sites or add Sites-specific files, scripts, tests, or hosting configuration.
-- Do not run `wrangler deploy` from a local machine for normal releases. Wrangler is only for local validation or Cloudflare configuration work when explicitly requested.
-- After pushing a release tag, verify the GitHub Action, the remote `release` commit, the Cloudflare build, and the public site's new assets before reporting the release complete.
+- 生产发版只有一条链路：先将目标提交推送到 GitHub 的 `main` 分支，再在该提交上创建并推送 `v*` tag。tag 触发的 GitHub Action 会把这个精确提交提升到 `release` 分支；已连接的 Cloudflare Workers Builds 只构建并部署 `release`。
+- 普通的 `main` push 不得发布生产环境。不要手动推送或修改 `release` 分支。
+- 不要使用 OpenAI Sites，也不要新增任何 Sites 专用文件、脚本、测试或托管配置。
+- 正常发版不要在本机执行 `wrangler deploy`。只有用户明确要求进行本地验证或 Cloudflare 配置操作时，才使用 Wrangler。
+- 推送发版 tag 后，必须依次确认 GitHub Action、远端 `release` 提交、Cloudflare 构建以及线上站点的新资源，全部验证成功后才能报告发版完成。
 
-## Product decisions
+## 产品决策
 
-- Public identity is `Elin` only. Never expose the user's real name in UI copy, metadata, assets, or comments.
-- This is a focused Chinese single-page portfolio: personal introduction first, then the project wall. Do not add routes or unrelated sections.
-- The selected visual direction is a continuous dynamic aurora-and-mountain panorama with translucent deep-blue project surfaces.
-- In `精选作品`, Vue Form Craft is the only full-width featured item and the only item that shows a GitHub star count; 小筑 and yl-code use equal secondary cards.
-- Project cards open an in-page detail dialog rather than navigating to project detail routes.
-- Use real product screenshots, preview links, and GitHub repositories. Vue Form Craft links to `form.elin521.cn/form-design`; 小筑 links to `xiaozhu.elin521.cn`; yl-code has no online-preview CTA and instead explains how to install the npm package inside its detail dialog.
+- 对外身份只使用 `Elin`。不要在界面文案、元数据、资源或代码注释中暴露用户真实姓名。
+- 这是一个聚焦的中文单页作品集：先展示个人介绍，再展示项目墙。不要新增路由或无关板块。
+- 已选定的视觉方向是连续、动态的极光与山景全景背景，搭配半透明深蓝色项目界面。
+- 在“精选作品”中，Vue Form Craft 是唯一的通栏主项目，也是唯一显示 GitHub Star 数量的项目；小筑和 yl-code 使用两个同级的次要卡片。
+- 点击项目卡片时，在当前页面打开详情弹窗，不跳转到项目详情路由。
+- 使用真实的产品截图、预览链接和 GitHub 仓库。Vue Form Craft 链接到 `form.elin521.cn/form-design`；小筑链接到 `xiaozhu.elin521.cn`；yl-code 不提供在线预览按钮，只在详情弹窗中说明如何安装 npm 包。
