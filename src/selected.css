@@ -61,8 +61,8 @@ footer {
   .project-card:not(.project-card--featured) { height: 320px; }
   .project-card:not(.project-card--featured) .project-card__body { padding: 16px 20px 18px; }
   .project-card:not(.project-card--featured) p { margin: 8px 0 14px; line-height: 1.5; }
-  .project-modal { width: min(900px, 100%); max-height: min(620px, calc(100vh - 80px)); grid-template-columns: 1.08fr .92fr; }
-  .modal-visual { min-height: 560px; }
+  .project-modal { width: min(1080px, 100%); max-height: min(660px, calc(100vh - 80px)); grid-template-columns: minmax(0, 1.12fr) minmax(390px, .88fr); }
+  .modal-visual { min-height: 600px; }
   .modal-content { padding: 44px 34px 36px; }
   .modal-content h2 { font-size: 36px; }
   .modal-lead { margin-bottom: 22px; }
@@ -80,7 +80,39 @@ footer {
   .modal-backdrop { background: rgba(1, 4, 17, .86); }
   .project-modal,
   .modal-content { background: #080f2f; }
-  .modal-visual { height: 220px; }
+  .modal-visual { height: 240px; padding: 14px; }
+}
+
+.modal-visual {
+  position: relative;
+  padding: 24px;
+  display: grid;
+  place-items: center;
+  border-right: 1px solid rgba(229, 234, 255, .12);
+  background:
+    radial-gradient(circle at 22% 18%, rgba(132, 106, 225, .18), transparent 42%),
+    linear-gradient(145deg, rgba(11, 21, 58, .96), rgba(4, 9, 29, .98));
+}
+
+.modal-visual img {
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
+  border: 1px solid rgba(234, 238, 255, .2);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow:
+    0 26px 70px rgba(0, 0, 0, .4),
+    0 0 0 1px rgba(255, 255, 255, .04);
+}
+
+@media (max-width: 800px) {
+  .modal-visual {
+    padding: 14px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(229, 234, 255, .12);
+  }
 }
 
 /* Aurora glass refinement */
@@ -113,24 +145,24 @@ body {
 
 .project-card {
   border-color: var(--line);
-  background-color: var(--surface);
+  background:
+    linear-gradient(145deg, rgba(24, 46, 101, .12), rgba(4, 10, 34, .03));
   background-clip: padding-box;
   box-shadow:
     0 24px 70px rgba(2, 4, 18, .2),
     inset 0 1px 0 rgba(255, 255, 255, .16);
-  -webkit-backdrop-filter: blur(30px) saturate(150%);
-  backdrop-filter: blur(30px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  backdrop-filter: blur(16px) saturate(130%);
 }
 
 .project-card__body {
-  background-color: rgba(7, 15, 49, .14);
-  -webkit-backdrop-filter: blur(22px) saturate(145%);
-  backdrop-filter: blur(22px) saturate(145%);
+  background: transparent;
 }
 
 .project-card:hover {
   border-color: rgba(255, 255, 255, .42);
-  background-color: rgba(18, 30, 78, .3);
+  background:
+    linear-gradient(145deg, rgba(31, 55, 113, .2), rgba(6, 13, 43, .08));
   box-shadow:
     0 30px 82px rgba(2, 4, 18, .3),
     inset 0 1px 0 rgba(255, 255, 255, .2);
