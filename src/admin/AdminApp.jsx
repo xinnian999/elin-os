@@ -9,12 +9,15 @@ import {
   EyeSlash,
   FloppyDisk,
   ImageSquare,
+  IdentificationCard,
   Plus,
   SignOut,
+  SquaresFour,
   Trash,
   UploadSimple,
 } from "@phosphor-icons/react";
 import { defaultProjects, fetchProjects } from "../data/projects.js";
+import { defaultProfile, fetchProfile } from "../data/profile.js";
 import "./admin.css";
 
 const TOKEN_KEY = "elin-admin-token";
@@ -84,16 +87,16 @@ function Login({ onLogin }) {
     <main className="admin-login">
       <div className="admin-login__glow" />
       <form onSubmit={submit}>
-        <span className="admin-kicker">ELIN / WORKS CONTROL</span>
-        <h1>作品墙控制台</h1>
-        <p>输入管理密钥，在线编辑项目内容、排序和图片。</p>
+        <span className="admin-kicker">ELIN / SITE CONTROL</span>
+        <h1>主页管理</h1>
+        <p>输入管理密钥，在线维护主页简介与作品内容。</p>
         <label>
           <span>管理密钥</span>
           <input autoFocus type="password" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="current-password" />
         </label>
         {error && <div className="admin-error">{error}</div>}
         <button type="submit" disabled={!token || loading}>{loading ? "验证中…" : "进入控制台"}</button>
-        <a href="/#works"><ArrowLeft /> 返回作品墙</a>
+        <a href="/"><ArrowLeft /> 返回主页</a>
       </form>
     </main>
   );
@@ -103,6 +106,8 @@ export function AdminApp() {
   const [token, setToken] = useState(() => sessionStorage.getItem(TOKEN_KEY) || "");
   const [authorized, setAuthorized] = useState(false);
   const [projects, setProjects] = useState(() => cloneProjects(defaultProjects));
+  const [profile, setProfile] = useState(defaultProfile);
+  const [activeSection, setActiveSection] = useState("profile");
   const [activeId, setActiveId] = useState(defaultProjects[0]?.id);
   const [status, setStatus] = useState({ tone: "", message: "" });
   const [busy, setBusy] = useState(false);
@@ -117,11 +122,12 @@ export function AdminApp() {
       .then((response) => {
         if (!response.ok) throw new Error();
         setAuthorized(true);
-        return fetchProjects();
+        return Promise.all([fetchProfile(), fetchProjects()]);
       })
-      .then((data) => {
-        if (!data) return;
-        const loaded = cloneProjects(data.projects);
+      .then(([profileData, worksData]) => {
+        if (!profileData || !worksData) return;
+        setProfile(profileData.profile);
+        const loaded = cloneProjects(worksData.projects);
         setProjects(loaded);
         setActiveId(loaded[0]?.id || "");
       })
@@ -191,16 +197,18 @@ export function AdminApp() {
 
   async function save() {
     setBusy(true);
-    setStatus({ tone: "", message: "正在保存作品配置…" });
+    const isProfile = activeSection === "profile";
+    setStatus({ tone: "", message: isProfile ? "正在保存简介…" : "正在保存作品配置…" });
     try {
-      const response = await fetch("/api/admin/works", {
+      const response = await fetch(isProfile ? "/api/admin/profile" : "/api/admin/works", {
         method: "PUT",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ projects }),
+        body: JSON.stringify(isProfile ? { profile } : { projects }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "保存失败");
-      setProjects(cloneProjects(result.projects));
+      if (isProfile) setProfile(result.profile);
+      else setProjects(cloneProjects(result.projects));
       setStatus({ tone: "success", message: "已在线生效" });
     } catch (error) {
       setStatus({ tone: "error", message: error.message });
@@ -220,13 +228,18 @@ export function AdminApp() {
   return (
     <div className="admin-shell">
       <header className="admin-header">
-        <div><span className="admin-kicker">ELIN / WORKS CONTROL</span><h1>作品墙控制台</h1></div>
-        <div className="admin-header__meta"><span>{visibleCount} 个在线作品</span><a href="/#works" target="_blank"><Eye /> 查看前台</a><button type="button" onClick={logout}><SignOut /> 退出</button></div>
+        <div><span className="admin-kicker">ELIN / SITE CONTROL</span><h1>主页管理</h1></div>
+        <div className="admin-header__meta"><span>简介 · {visibleCount} 个在线作品</span><a href="/" target="_blank"><Eye /> 查看主页</a><button type="button" onClick={logout}><SignOut /> 退出</button></div>
       </header>
 
       <main className="admin-workspace">
         <aside className="admin-sidebar">
-          <div className="admin-sidebar__title"><span>作品排序</span><button type="button" onClick={addProject}><Plus /> 新增</button></div>
+          <div className="admin-sidebar__title"><span>内容模块</span></div>
+          <nav className="admin-section-list" aria-label="主页内容模块">
+            <button className={activeSection === "profile" ? "is-active" : ""} type="button" onClick={() => setActiveSection("profile")}><IdentificationCard /><span><strong>简介</strong><small>身份、介绍与联系方式</small></span></button>
+            <button className={activeSection === "works" ? "is-active" : ""} type="button" onClick={() => setActiveSection("works")}><SquaresFour /><span><strong>作品</strong><small>{visibleCount} 个正在展示</small></span></button>
+          </nav>
+          {activeSection === "works" && <><div className="admin-sidebar__title admin-sidebar__subhead"><span>作品排序</span><button type="button" onClick={addProject}><Plus /> 新增</button></div>
           <div className="admin-project-list">
             {projects.map((project, index) => (
               <button className={project.id === activeId ? "is-active" : ""} type="button" key={project.id} onClick={() => setActiveId(project.id)}>
@@ -239,10 +252,29 @@ export function AdminApp() {
           <div className="admin-order-actions">
             <button type="button" onClick={() => moveProject(-1)} disabled={activeIndex <= 0}><ArrowUp /> 上移</button>
             <button type="button" onClick={() => moveProject(1)} disabled={activeIndex < 0 || activeIndex >= projects.length - 1}><ArrowDown /> 下移</button>
-          </div>
+          </div></>}
         </aside>
 
-        {activeProject ? <section className="admin-editor">
+        {activeSection === "profile" ? <section className="admin-editor">
+          <div className="admin-editor__toolbar"><div><span>主页内容</span><h2>简介</h2></div></div>
+          <div className="admin-profile-grid">
+            <section className="admin-panel">
+              <div className="admin-panel__heading"><span>01</span><div><h3>身份信息</h3><p>主页首屏最先传达给访客的信息。</p></div></div>
+              <div className="admin-field-grid">
+                <Field label="名称" value={profile.name} onChange={(name) => setProfile((current) => ({ ...current, name }))} />
+                <Field label="身份描述" value={profile.role} onChange={(role) => setProfile((current) => ({ ...current, role }))} />
+              </div>
+              <Field label="个人简介" multiline value={profile.intro} onChange={(intro) => setProfile((current) => ({ ...current, intro }))} />
+              <Field label="所在地 / 状态" value={profile.location} onChange={(location) => setProfile((current) => ({ ...current, location }))} />
+            </section>
+            <section className="admin-panel">
+              <div className="admin-panel__heading"><span>02</span><div><h3>联系与署名</h3><p>管理公开联系方式和页脚表达。</p></div></div>
+              <Field label="GitHub 链接" value={profile.githubUrl} onChange={(githubUrl) => setProfile((current) => ({ ...current, githubUrl }))} />
+              <Field label="邮箱" type="email" value={profile.email} onChange={(email) => setProfile((current) => ({ ...current, email }))} />
+              <Field label="页脚文案" value={profile.footer} onChange={(footer) => setProfile((current) => ({ ...current, footer }))} />
+            </section>
+          </div>
+        </section> : activeProject ? <section className="admin-editor">
           <div className="admin-editor__toolbar">
             <div><span>正在编辑</span><h2>{activeProject.name}</h2></div>
             <div><button type="button" onClick={duplicateProject}><Copy /> 复制</button><button className="danger" type="button" onClick={removeProject}><Trash /> 删除</button></div>
@@ -297,8 +329,8 @@ export function AdminApp() {
       </main>
 
       <div className="admin-savebar">
-        <div className={`admin-status ${status.tone}`}>{status.tone === "success" && <Check />}{status.message || "修改只会在点击保存后上线"}</div>
-        <button type="button" onClick={save} disabled={busy || !projects.length}><FloppyDisk /> {busy ? "处理中…" : "保存并立即生效"}</button>
+        <div className={`admin-status ${status.tone}`}>{status.tone === "success" && <Check />}{status.message || `${activeSection === "profile" ? "简介" : "作品"}修改只会在点击保存后上线`}</div>
+        <button type="button" onClick={save} disabled={busy || (activeSection === "works" && !projects.length)}><FloppyDisk /> {busy ? "处理中…" : "保存并立即生效"}</button>
       </div>
     </div>
   );

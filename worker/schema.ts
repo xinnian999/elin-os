@@ -18,6 +18,16 @@ type Project = {
   details: [string, string][];
 };
 
+export type Profile = {
+  name: string;
+  role: string;
+  intro: string;
+  location: string;
+  githubUrl: string;
+  email: string;
+  footer: string;
+};
+
 function stringValue(value: unknown, field: string, maxLength: number, required = false): string {
   if (typeof value !== "string") throw new Error(`${field} 必须是文本`);
   const normalized = value.trim();
@@ -38,6 +48,22 @@ function safeUrl(value: unknown, field: string, allowLocal = false): string {
   }
   if (parsed.protocol !== "https:") throw new Error(`${field} 必须使用 HTTPS`);
   return parsed.toString();
+}
+
+export function normalizeProfile(value: unknown): Profile {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("简介配置格式错误");
+  const profile = value as Record<string, unknown>;
+  const email = stringValue(profile.email ?? "", "邮箱", 120);
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("邮箱格式不正确");
+  return {
+    name: stringValue(profile.name, "名称", 40, true),
+    role: stringValue(profile.role, "身份描述", 100, true),
+    intro: stringValue(profile.intro, "个人简介", 300, true),
+    location: stringValue(profile.location ?? "", "所在地", 80),
+    githubUrl: safeUrl(profile.githubUrl ?? "", "GitHub 链接"),
+    email,
+    footer: stringValue(profile.footer ?? "", "页脚文案", 100),
+  };
 }
 
 function projectValue(value: unknown, index: number): Project {

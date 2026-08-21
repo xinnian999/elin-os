@@ -1,7 +1,9 @@
 import defaultConfig from "../src/data/default-projects.json";
-import { normalizeProjects, parseGithubRepository } from "./schema";
+import defaultProfile from "../src/data/default-profile.json";
+import { normalizeProfile, normalizeProjects, parseGithubRepository } from "./schema";
 
 const WORKS_KEY = "portfolio:works:v1";
+const PROFILE_KEY = "portfolio:profile:v1";
 const STAR_TTL_SECONDS = 30 * 60;
 const MAX_CONFIG_BYTES = 96 * 1024;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -14,6 +16,11 @@ const IMAGE_TYPES: Record<string, string> = {
 
 type WorksConfig = {
   projects: ReturnType<typeof normalizeProjects>;
+  updatedAt: string | null;
+};
+
+type ProfileConfig = {
+  profile: ReturnType<typeof normalizeProfile>;
   updatedAt: string | null;
 };
 
@@ -53,6 +60,17 @@ async function readConfig(env: Env): Promise<WorksConfig> {
   } catch (error) {
     console.error(JSON.stringify({ message: "invalid works config in KV", error: error instanceof Error ? error.message : String(error) }));
     return { projects: normalizeProjects(defaultConfig.projects), updatedAt: null };
+  }
+}
+
+async function readProfile(env: Env): Promise<ProfileConfig> {
+  const stored = await env.WORKS.get<ProfileConfig>(PROFILE_KEY, { type: "json", cacheTtl: 30 });
+  if (!stored) return { profile: normalizeProfile(defaultProfile), updatedAt: null };
+  try {
+    return { profile: normalizeProfile(stored.profile), updatedAt: stored.updatedAt || null };
+  } catch (error) {
+    console.error(JSON.stringify({ message: "invalid profile config in KV", error: error instanceof Error ? error.message : String(error) }));
+    return { profile: normalizeProfile(defaultProfile), updatedAt: null };
   }
 }
 
@@ -96,6 +114,10 @@ async function publicWorks(env: Env): Promise<Response> {
   return json({ ...config, projects }, { headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=120" } });
 }
 
+async function publicProfile(env: Env): Promise<Response> {
+  return json(await readProfile(env), { headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=120" } });
+}
+
 async function saveWorks(request: Request, env: Env): Promise<Response> {
   const contentLength = Number(request.headers.get("Content-Length") || 0);
   if (!contentLength) return json({ error: "无法确认配置大小" }, { status: 411 });
@@ -105,6 +127,18 @@ async function saveWorks(request: Request, env: Env): Promise<Response> {
   const projects = normalizeProjects((body as { projects?: unknown }).projects);
   const config: WorksConfig = { projects, updatedAt: new Date().toISOString() };
   await env.WORKS.put(WORKS_KEY, JSON.stringify(config));
+  return json(config);
+}
+
+async function saveProfile(request: Request, env: Env): Promise<Response> {
+  const contentLength = Number(request.headers.get("Content-Length") || 0);
+  if (!contentLength) return json({ error: "无法确认配置大小" }, { status: 411 });
+  if (contentLength > MAX_CONFIG_BYTES) return json({ error: "简介配置过大" }, { status: 413 });
+  const body = await request.json<unknown>();
+  if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "请求格式错误" }, { status: 400 });
+  const profile = normalizeProfile((body as { profile?: unknown }).profile);
+  const config: ProfileConfig = { profile, updatedAt: new Date().toISOString() };
+  await env.WORKS.put(PROFILE_KEY, JSON.stringify(config));
   return json(config);
 }
 
@@ -149,6 +183,7 @@ export default {
     const url = new URL(request.url);
     try {
       if (request.method === "GET" && url.pathname === "/api/works") return publicWorks(env);
+      if (request.method === "GET" && url.pathname === "/api/profile") return publicProfile(env);
       if (request.method === "GET" && url.pathname.startsWith("/media/")) return serveMedia(request, env, url.pathname);
 
       if (url.pathname.startsWith("/api/admin/")) {
@@ -156,6 +191,7 @@ export default {
         if (unauthorized) return unauthorized;
         if (request.method === "POST" && url.pathname === "/api/admin/session") return json({ ok: true });
         if (request.method === "PUT" && url.pathname === "/api/admin/works") return saveWorks(request, env);
+        if (request.method === "PUT" && url.pathname === "/api/admin/profile") return saveProfile(request, env);
         if (request.method === "POST" && url.pathname === "/api/admin/media") return uploadMedia(request, env);
         return json({ error: "接口不存在" }, { status: 404 });
       }

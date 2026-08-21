@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, EnvelopeSimple, GithubLogo, MapPin, Star, X } from "@phosphor-icons/react";
 import { defaultProjects, fetchProjects } from "./data/projects.js";
+import { defaultProfile, fetchProfile } from "./data/profile.js";
 
 function Tag({ children }) { return <span className="tag">{children}</span>; }
 
@@ -58,6 +59,7 @@ function ProjectModal({ project, onClose }) {
 export function App() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [projects, setProjects] = useState(defaultProjects);
+  const [profile, setProfile] = useState(defaultProfile);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -68,6 +70,11 @@ export function App() {
       .catch((error) => {
         if (error.name !== "AbortError") console.warn("使用内置作品配置：", error.message);
       });
+    fetchProfile(controller.signal)
+      .then(({ profile: nextProfile }) => setProfile(nextProfile))
+      .catch((error) => {
+        if (error.name !== "AbortError") console.warn("使用内置简介配置：", error.message);
+      });
     return () => controller.abort();
   }, []);
 
@@ -75,10 +82,10 @@ export function App() {
     <div className="site-shell">
       <div className="panorama" aria-hidden="true"><img src="/assets/aurora-panorama-v2.png" alt="" /></div><div className="atmosphere" aria-hidden="true" />
       <main id="top">
-        <section className="hero" aria-labelledby="hero-title"><h1 id="hero-title">Elin</h1><p className="role">前端工程师 / 开源创作者</p><p className="intro">我用工程能力与视觉判断，把复杂问题做成自然、可靠的产品体验。</p><div className="meta-row"><span><MapPin aria-hidden="true" /> 上海 · 可远程</span></div><div className="profile-links"><a href="https://github.com/xinnian999" target="_blank" rel="noreferrer"><GithubLogo aria-hidden="true" /> GitHub</a><i>·</i><a href="mailto:hello@example.com"><EnvelopeSimple aria-hidden="true" /> 邮箱</a></div></section>
+        <section className="hero" aria-labelledby="hero-title"><h1 id="hero-title">{profile.name}</h1><p className="role">{profile.role}</p><p className="intro">{profile.intro}</p>{profile.location && <div className="meta-row"><span><MapPin aria-hidden="true" /> {profile.location}</span></div>}<div className="profile-links">{profile.githubUrl && <a href={profile.githubUrl} target="_blank" rel="noreferrer"><GithubLogo aria-hidden="true" /> GitHub</a>}{profile.githubUrl && profile.email && <i>·</i>}{profile.email && <a href={`mailto:${profile.email}`}><EnvelopeSimple aria-hidden="true" /> 邮箱</a>}</div></section>
         <section className="work-section" aria-labelledby="work-title"><div className="section-heading"><div><h2 id="work-title">精选作品</h2><span className="heading-line" /></div></div><div className="project-grid">{projects.map((project) => <ProjectCard key={project.id} project={project} onOpen={setSelectedProject} />)}</div></section>
       </main>
-      <footer><span>© 2026 Elin</span><span>以好奇心与长期主义构建</span></footer>{selectedProject && <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} />}
+      <footer><span>© 2026 {profile.name}</span><span>{profile.footer}</span></footer>{selectedProject && <ProjectModal project={selectedProject} onClose={() => setSelectedProject(null)} />}
     </div>
   );
 }
