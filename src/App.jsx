@@ -1,58 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, EnvelopeSimple, GithubLogo, MapPin, Star, X } from "@phosphor-icons/react";
-
-const projects = [
-  {
-    id: "vue-form-craft",
-    name: "Vue Form Craft",
-    eyebrow: "首推开源项目",
-    description: "AI 驱动的 Vue 3 可视化表单设计器。",
-    longDescription: "用拖拽、Schema 与 AI 辅助，把复杂表单从配置快速变成可运行界面。",
-    image: "/assets/vue-form-craft-preview.png",
-    stack: ["Vue 3", "TypeScript", "Element Plus"],
-    stars: 472,
-    featured: true,
-    previewUrl: "https://form.elin521.cn/form-design",
-    githubUrl: "https://github.com/xinnian999/vue-form-craft",
-    details: [
-      ["项目背景", "业务表单往往包含复杂联动、嵌套结构和重复配置，纯手写维护成本高。"],
-      ["技术方案", "以 FormDesign 与 FormRender 为核心，支持拖拽生成 Schema、深层嵌套、校验规则和 AI 辅助编辑。"],
-      ["项目状态", "已开源并提供在线设计器与文档，可直接体验完整表单搭建流程。"],
-    ],
-  },
-  {
-    id: "xiaozhu",
-    name: "小筑",
-    eyebrow: "AI 应用",
-    description: "用自然语言构建并持续迭代应用。",
-    longDescription: "从需求对话到代码生成、运行预览与版本回滚，让应用构建形成完整闭环。",
-    image: "/assets/xiaozhu-preview.png",
-    stack: ["React", "FastAPI", "LangGraph"],
-    previewUrl: "https://xiaozhu.elin521.cn",
-    githubUrl: "https://github.com/xinnian999/xiaozhu",
-    details: [
-      ["项目背景", "把一次性代码生成升级为可继续对话、可运行、可恢复的长期项目体验。"],
-      ["技术方案", "前端工作区连接后台 Agent 与隔离沙箱，生成任务、预览状态和版本记录可以持续同步。"],
-      ["项目状态", "产品已部署到独立域名，支持账号登录后的完整应用构建流程。"],
-    ],
-  },
-  {
-    id: "yl-code",
-    name: "yl-code",
-    eyebrow: "终端 Agent",
-    description: "面向真实项目工作的终端 AI 编程助手。",
-    longDescription: "在终端内连接模型、MCP、项目规则与技能，让 Agent 直接参与日常开发任务。",
-    image: "/assets/yl-code-preview.png",
-    stack: ["TypeScript", "Ink", "LangGraph"],
-    githubUrl: "https://github.com/xinnian999/yl-code",
-    installCommand: "npm install -g yl-code",
-    details: [
-      ["项目背景", "开发者需要一个既理解当前仓库，又能留在终端工作流里的轻量编程助手。"],
-      ["技术方案", "基于 Ink 构建交互界面，以独立 Agent 核心连接模型、MCP、技能和项目规则。"],
-      ["项目状态", "已发布到 npm；安装后输入 yl，即可在当前项目目录启动。"],
-    ],
-  },
-];
+import { defaultProjects, fetchGithubStarCount, fetchProjects } from "./data/projects.js";
 
 function Tag({ children }) { return <span className="tag">{children}</span>; }
 
@@ -63,7 +11,7 @@ function ProjectCard({ project, onOpen }) {
       <div className="project-card__body">
         <div className="project-card__heading">
           <div><span className="eyebrow">{project.eyebrow}</span><h3>{project.name}</h3></div>
-          {project.featured ? <span className="star-count" aria-label={`${project.stars} 个 GitHub Star`}><Star weight="fill" aria-hidden="true" /> {project.stars}</span> : <span className="card-arrow" aria-hidden="true"><ArrowUpRight /></span>}
+          {project.featured && typeof project.stars === "number" ? <span className="star-count" aria-label={`${project.stars} 个 GitHub Star`}><Star weight="fill" aria-hidden="true" /> {project.stars}</span> : <span className="card-arrow" aria-hidden="true"><ArrowUpRight /></span>}
         </div>
         <p>{project.description}</p>
         <div className="tag-list">{project.stack.map((item) => <Tag key={item}>{item}</Tag>)}</div>
@@ -109,6 +57,33 @@ function ProjectModal({ project, onClose }) {
 
 export function App() {
   const [selectedProject, setSelectedProject] = useState(null);
+  const [projects, setProjects] = useState(defaultProjects);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchProjects(controller.signal)
+      .then(async ({ projects: nextProjects }) => {
+        const visibleProjects = nextProjects.filter((project) => project.visible !== false);
+        setProjects(visibleProjects);
+        const liveStars = await Promise.all(visibleProjects.map(async (project) => {
+          if (!project.featured) return [project.id, null];
+          try { return [project.id, await fetchGithubStarCount(project.githubUrl, controller.signal)]; }
+          catch { return [project.id, null]; }
+        }));
+        if (!controller.signal.aborted) {
+          const starMap = new Map(liveStars);
+          setProjects((current) => current.map((project) => {
+            const stars = starMap.get(project.id);
+            return typeof stars === "number" ? { ...project, stars } : project;
+          }));
+        }
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") console.warn("使用内置作品配置：", error.message);
+      });
+    return () => controller.abort();
+  }, []);
+
   return (
     <div className="site-shell">
       <div className="panorama" aria-hidden="true"><img src="/assets/aurora-panorama-v2.png" alt="" /></div><div className="atmosphere" aria-hidden="true" />

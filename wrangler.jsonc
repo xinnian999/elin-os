@@ -1,9 +1,30 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "elin-os",
-  "compatibility_date": "2026-08-20",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-08-21",
+  "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./dist/client",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/media/*"]
+  },
+  "kv_namespaces": [
+    {
+      "binding": "WORKS",
+      "id": "56a8ed68dc4a473895acd112b583ad03"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "elin-os-media"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "logs": { "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.01 }
   }
 }

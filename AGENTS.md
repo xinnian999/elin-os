@@ -24,3 +24,7 @@
 - 在“精选作品”中，Vue Form Craft 是唯一的通栏主项目，也是唯一显示 GitHub Star 数量的项目；小筑和 yl-code 使用两个同级的次要卡片。
 - 点击项目卡片时，在当前页面打开详情弹窗，不跳转到项目详情路由。
 - 使用真实的产品截图、预览链接和 GitHub 仓库。Vue Form Craft 链接到 `form.elin521.cn/form-design`；小筑链接到 `xiaozhu.elin521.cn`；yl-code 不提供在线预览按钮，只在详情弹窗中说明如何安装 npm 包。
+- 作品墙由线上配置驱动：公开页面从 `/api/works` 读取 Cloudflare KV 中的配置，配置不存在或接口异常时回退到仓库内置默认数据。
+- 管理入口固定为 `/admin`，不要在公开页面展示入口。管理密钥只能存为 Cloudflare Worker Secret，不得写入源码、配置文件或 GitHub。
+- 作品图片上传到 `elin-os-media` R2 Bucket，通过 `/media/*` 读取；作品文字、链接、排序和展示状态保存在 `elin-os-works` KV Namespace。
+- 主项目的 GitHub Star 在浏览器中通过 GitHub 公开仓库接口实时刷新；Worker 使用 Shields.io JSON 与 KV 缓存作为限流或网络异常时的回退，不要继续手工维护 Star 数字。
