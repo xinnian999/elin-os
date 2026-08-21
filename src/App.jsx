@@ -2,10 +2,56 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, EnvelopeSimple, GithubLogo, MapPin, Star, X } from "@phosphor-icons/react";
 
 const projects = [
-  { id: "canvas", name: "无界画布", eyebrow: "首推项目", description: "专业创作工具的高性能画布引擎。", longDescription: "让复杂创作工具同时拥有专业能力、稳定性能与自然的操作手感。", image: "/assets/project-canvas.png", stack: ["TypeScript", "React", "Canvas", "WebGL"], stars: 428, featured: true },
-  { id: "motion", name: "动效引擎", eyebrow: "创作工具", description: "面向产品团队的时间轴与动效编排工具。", image: "/assets/project-motion.png", stack: ["React", "Motion", "WebGL"] },
-  { id: "system", name: "界面协议", eyebrow: "设计系统", description: "连接设计语言与工程实现的组件规范。", image: "/assets/project-system.png", stack: ["TypeScript", "Storybook", "Tokens"] },
-  { id: "notes", name: "本地笔记", eyebrow: "效率工具", description: "隐私优先、快速克制的本地写作体验。", image: "/assets/project-notes.png", stack: ["React", "IndexedDB", "PWA"] },
+  {
+    id: "vue-form-craft",
+    name: "Vue Form Craft",
+    eyebrow: "首推开源项目",
+    description: "AI 驱动的 Vue 3 可视化表单设计器。",
+    longDescription: "用拖拽、Schema 与 AI 辅助，把复杂表单从配置快速变成可运行界面。",
+    image: "/assets/vue-form-craft-preview.png",
+    stack: ["Vue 3", "TypeScript", "Element Plus"],
+    stars: 472,
+    featured: true,
+    previewUrl: "https://form.elin521.cn/form-design",
+    githubUrl: "https://github.com/xinnian999/vue-form-craft",
+    details: [
+      ["项目背景", "业务表单往往包含复杂联动、嵌套结构和重复配置，纯手写维护成本高。"],
+      ["技术方案", "以 FormDesign 与 FormRender 为核心，支持拖拽生成 Schema、深层嵌套、校验规则和 AI 辅助编辑。"],
+      ["项目状态", "已开源并提供在线设计器与文档，可直接体验完整表单搭建流程。"],
+    ],
+  },
+  {
+    id: "xiaozhu",
+    name: "小筑",
+    eyebrow: "AI 应用",
+    description: "用自然语言构建并持续迭代应用。",
+    longDescription: "从需求对话到代码生成、运行预览与版本回滚，让应用构建形成完整闭环。",
+    image: "/assets/xiaozhu-preview.png",
+    stack: ["React", "FastAPI", "LangGraph"],
+    previewUrl: "https://xiaozhu.elin521.cn",
+    githubUrl: "https://github.com/xinnian999/xiaozhu",
+    details: [
+      ["项目背景", "把一次性代码生成升级为可继续对话、可运行、可恢复的长期项目体验。"],
+      ["技术方案", "前端工作区连接后台 Agent 与隔离沙箱，生成任务、预览状态和版本记录可以持续同步。"],
+      ["项目状态", "产品已部署到独立域名，支持账号登录后的完整应用构建流程。"],
+    ],
+  },
+  {
+    id: "yl-code",
+    name: "yl-code",
+    eyebrow: "终端 Agent",
+    description: "面向真实项目工作的终端 AI 编程助手。",
+    longDescription: "在终端内连接模型、MCP、项目规则与技能，让 Agent 直接参与日常开发任务。",
+    image: "/assets/yl-code-preview.png",
+    stack: ["TypeScript", "Ink", "LangGraph"],
+    githubUrl: "https://github.com/xinnian999/yl-code",
+    installCommand: "npm install -g yl-code",
+    details: [
+      ["项目背景", "开发者需要一个既理解当前仓库，又能留在终端工作流里的轻量编程助手。"],
+      ["技术方案", "基于 Ink 构建交互界面，以独立 Agent 核心连接模型、MCP、技能和项目规则。"],
+      ["项目状态", "已发布到 npm；安装后输入 yl，即可在当前项目目录启动。"],
+    ],
+  },
 ];
 
 function Tag({ children }) { return <span className="tag">{children}</span>; }
@@ -48,11 +94,13 @@ function ProjectModal({ project, onClose }) {
         <div className="modal-visual"><img src={project.image} alt={`${project.name}完整界面预览`} /></div>
         <div className="modal-content">
           <span className="eyebrow">{project.eyebrow}</span><h2 id="modal-title">{project.name}</h2><p className="modal-lead">{project.longDescription || project.description}</p>
-          <div className="case-item"><strong>项目背景</strong><p>复杂创作工具需要同时兼顾性能、精度与协作体验。</p></div>
-          <div className="case-item"><strong>技术方案</strong><p>基于 Canvas 与 WebGL 构建渲染内核，并用 TypeScript 管理可扩展的插件体系。</p></div>
-          <div className="case-item"><strong>结果</strong><p>在复杂场景中保持流畅交互，并持续服务开源社区。</p></div>
+          {project.details.map(([title, content]) => <div className="case-item" key={title}><strong>{title}</strong><p>{content}</p></div>)}
           <div className="tag-list modal-tags">{project.stack.map((item) => <Tag key={item}>{item}</Tag>)}</div>
-          <div className="modal-actions"><a className="action-primary" href="https://github.com/xinnian999" target="_blank" rel="noreferrer"><ArrowUpRight aria-hidden="true" /> 在线体验</a><a className="action-secondary" href="https://github.com/xinnian999" target="_blank" rel="noreferrer"><GithubLogo aria-hidden="true" /> 查看源码</a></div>
+          {project.installCommand && <div className="install-guide"><span>终端安装</span><code>{project.installCommand}</code><small>安装完成后，在项目目录输入 <strong>yl</strong> 启动。</small></div>}
+          <div className="modal-actions">
+            {project.previewUrl && <a className="action-primary" href={project.previewUrl} target="_blank" rel="noreferrer"><ArrowUpRight aria-hidden="true" /> 在线体验</a>}
+            <a className={project.previewUrl ? "action-secondary" : "action-primary"} href={project.githubUrl} target="_blank" rel="noreferrer"><GithubLogo aria-hidden="true" /> 查看源码</a>
+          </div>
         </div>
       </section>
     </div>

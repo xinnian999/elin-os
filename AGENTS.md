@@ -13,5 +13,6 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 - Public identity is `Elin` only. Never expose the user's real name in UI copy, metadata, assets, or comments.
 - This is a focused Chinese single-page portfolio: personal introduction first, then the project wall. Do not add routes or unrelated sections.
 - The selected visual direction is a continuous dynamic aurora-and-mountain panorama with translucent deep-blue project surfaces.
-- In `精选作品`, the first project is the only full-width featured item and the only item that shows a GitHub star count; three remaining projects use equal cards.
+- In `精选作品`, Vue Form Craft is the only full-width featured item and the only item that shows a GitHub star count; 小筑 and yl-code use equal secondary cards.
 - Project cards open an in-page detail dialog rather than navigating to project detail routes.
+- Use real product screenshots, preview links, and GitHub repositories. Vue Form Craft links to `form.elin521.cn/form-design`; 小筑 links to `xiaozhu.elin521.cn`; yl-code has no online-preview CTA and instead explains how to install the npm package inside its detail dialog.
