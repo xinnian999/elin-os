@@ -83,3 +83,67 @@ footer {
   .modal-visual { height: 220px; }
 }
 
+/* Aurora glass refinement */
+:root {
+  --muted: rgba(238, 242, 255, .76);
+  --line: rgba(238, 242, 255, .28);
+  --surface: rgba(12, 22, 65, .2);
+  --accent: #c2afff;
+}
+
+body {
+  background: #07102d;
+}
+
+.panorama {
+  inset: -3%;
+  background: #07102d;
+}
+
+.panorama img {
+  object-position: 52% 46%;
+  filter: brightness(.88) saturate(.9) contrast(1.03);
+  transform: scale(1.035);
+  animation-duration: 28s;
+}
+
+.atmosphere {
+  background: rgba(5, 11, 36, .12);
+}
+
+.project-card {
+  border-color: var(--line);
+  background-color: var(--surface);
+  background-clip: padding-box;
+  box-shadow:
+    0 24px 70px rgba(2, 4, 18, .2),
+    inset 0 1px 0 rgba(255, 255, 255, .16);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
+  backdrop-filter: blur(30px) saturate(150%);
+}
+
+.project-card__body {
+  background-color: rgba(7, 15, 49, .14);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  backdrop-filter: blur(22px) saturate(145%);
+}
+
+.project-card:hover {
+  border-color: rgba(255, 255, 255, .42);
+  background-color: rgba(18, 30, 78, .3);
+  box-shadow:
+    0 30px 82px rgba(2, 4, 18, .3),
+    inset 0 1px 0 rgba(255, 255, 255, .2);
+}
+
+.star-count,
+.tag,
+.card-arrow {
+  -webkit-backdrop-filter: blur(12px) saturate(145%);
+  backdrop-filter: blur(12px) saturate(145%);
+}
+
+@keyframes panorama-drift {
+  from { transform: scale(1.035) translate3d(-.35%, -.2%, 0); }
+  to { transform: scale(1.075) translate3d(.7%, .45%, 0); }
+}
