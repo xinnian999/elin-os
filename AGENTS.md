@@ -6,7 +6,15 @@ Before making substantial visual changes, use the Product Design plugin's `get-c
 
 When implementing from a selected generated mock, treat that image as the source of truth for layout, component anatomy, density, spacing, color, typography, visible content, and hierarchy.
 
-Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, and `tests/sites-worker.test.mjs` intact so the same local prototype can be handed to Sites. Before a Sites handoff, run `npm run build` and `npm run test:sites`; the build must leave `dist/client/index.html`, `dist/server/index.js`, and `dist/.openai/hosting.json`.
+Build app UI in `src/`. Cloudflare Worker deployment is configured only through `wrangler.jsonc`; run `npm run build` before publishing so `dist/client/index.html` and static assets are current.
+
+## Release workflow
+
+- Production releases use exactly one path: push the intended commit to GitHub's `main` branch, create a `v*` tag on that commit, and push the tag. The tag-triggered GitHub Action promotes that exact commit to the `release` branch; the connected Cloudflare Workers Builds integration builds and deploys only `release`.
+- A normal push to `main` must not deploy production. Do not push or modify the `release` branch manually.
+- Do not use OpenAI Sites or add Sites-specific files, scripts, tests, or hosting configuration.
+- Do not run `wrangler deploy` from a local machine for normal releases. Wrangler is only for local validation or Cloudflare configuration work when explicitly requested.
+- After pushing a release tag, verify the GitHub Action, the remote `release` commit, the Cloudflare build, and the public site's new assets before reporting the release complete.
 
 ## Product decisions
 
