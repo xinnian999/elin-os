@@ -11,7 +11,7 @@ Build app UI in `src/`. Keep `.openai/hosting.json`, `worker/index.js`, `scripts
 ## Product decisions
 
 - Public identity is `Elin` only. Never expose the user's real name in UI copy, metadata, assets, or comments.
-- This is a long-lived personal website, not a resume site. It should support articles, short notes, projects, friend links, personal interests, and a personal Agent.
-- The selected visual direction is the dark `Elin OS` personal-knowledge interface shown in `reference/elin-os-home.png`.
-- The homepage keeps the Agent as the primary interaction and shows a substantial `精选作品` section with Vue Form Craft, 小筑, and Niuma Code.
-- In `精选作品`, the first project is the only full-width featured item and should be visually larger; remaining projects use larger two-column cards on desktop and a single column on mobile. Do not add an adjacent content module solely to narrow the works layout.
+- This is a focused Chinese single-page portfolio: personal introduction first, then the project wall. Do not add routes or unrelated sections.
+- The selected visual direction is a continuous dynamic aurora-and-mountain panorama with translucent deep-blue project surfaces.
+- In `精选作品`, the first project is the only full-width featured item and the only item that shows a GitHub star count; three remaining projects use equal cards.
+- Project cards open an in-page detail dialog rather than navigating to project detail routes.
