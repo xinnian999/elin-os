@@ -60,6 +60,26 @@
         ["技术方案", "基于 Ink 构建交互界面，以独立 Agent 核心连接模型、MCP、技能和项目规则。"],
         ["项目状态", "已发布到 npm；安装后输入 yl，即可在当前项目目录启动。"]
       ]
+    },
+    {
+      "id": "tuchong",
+      "name": "图虫 Tuchong",
+      "eyebrow": "AI 图像工具",
+      "description": "输入提示词，即刻生成与编辑图像。",
+      "longDescription": "连接 Cloudflare Workers AI 与多模型提供商，在浏览器中完成生成、改图和创作记录管理。",
+      "image": "/media/works/2026/08/tuchong-preview.jpg",
+      "stack": ["React", "Cloudflare Workers AI", "Hono"],
+      "stars": null,
+      "featured": false,
+      "visible": true,
+      "previewUrl": "https://tuchong.elin521.cn",
+      "githubUrl": "https://github.com/xinnian999/tuchong",
+      "installCommand": "",
+      "details": [
+        ["项目背景", "把分散的模型配置、提示词和生成结果收拢成一套本地优先的图像创作体验。"],
+        ["技术方案", "以 React 构建创作界面，由 Hono 与 Cloudflare Workers AI 提供边缘生成能力，并用浏览器 SQLite 保留本地数据。"],
+        ["项目状态", "已部署到独立域名，可直接使用 Cloudflare Workers AI 完成图片生成与编辑。"]
+      ]
     }
   ]
 }

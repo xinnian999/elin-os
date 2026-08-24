@@ -6,7 +6,7 @@
 
 根据已选定的生成稿实现页面时，以该图片为布局、组件结构、信息密度、间距、颜色、字体、可见内容和视觉层级的设计基准。
 
-应用界面代码放在 `src/` 中。Cloudflare Worker 只通过 `wrangler.jsonc` 配置；发布前运行 `npm run build`，确认 `dist/client/index.html` 和静态资源均为最新产物。
+应用界面代码放在 `src/` 中。Cloudflare Worker 只通过 `wrangler.jsonc` 配置；发布前运行 `pnpm build`，确认 `dist/client/index.html` 和静态资源均为最新产物。
 
 ## 发版流程
 
@@ -21,7 +21,7 @@
 - 对外身份只使用 `Elin`。不要在界面文案、元数据、资源或代码注释中暴露用户真实姓名。
 - 这是一个聚焦的中文单页作品集：先展示个人介绍，再展示项目墙。不要新增路由或无关板块。
 - 已选定的视觉方向是连续、动态的极光与山景全景背景，搭配半透明深蓝色项目界面。
-- 在“精选作品”中，Vue Form Craft 是唯一的通栏主项目，也是唯一显示 GitHub Star 数量的项目；小筑和 yl-code 使用两个同级的次要卡片。
+- 在“精选作品”中，Vue Form Craft 是唯一的通栏主项目，也是唯一显示 GitHub Star 数量的项目；小筑、yl-code 和图虫 Tuchong 使用同级的次要卡片。
 - 点击项目卡片时，在当前页面打开详情弹窗，不跳转到项目详情路由。
 - 使用真实的产品截图、预览链接和 GitHub 仓库。Vue Form Craft 链接到 `form.elin521.cn/form-design`；小筑链接到 `xiaozhu.elin521.cn`；yl-code 不提供在线预览按钮，只在详情弹窗中说明如何安装 npm 包。
 - 主页内容由线上配置驱动：简介从 `/api/profile`、作品从 `/api/works` 读取 Cloudflare KV 中的配置，配置不存在或接口异常时回退到仓库内置默认数据。

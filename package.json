@@ -2,6 +2,7 @@
   "name": "elin-os",
   "version": "0.0.0",
   "private": true,
+  "packageManager": "pnpm@11.18.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
