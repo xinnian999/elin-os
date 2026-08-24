@@ -80,6 +80,26 @@
         ["技术方案", "以 React 构建创作界面，由 Hono 与 Cloudflare Workers AI 提供边缘生成能力，并用浏览器 SQLite 保留本地数据。"],
         ["项目状态", "已部署到独立域名，可直接使用 Cloudflare Workers AI 完成图片生成与编辑。"]
       ]
+    },
+    {
+      "id": "hyl-music",
+      "name": "小琳音乐站",
+      "eyebrow": "移动音乐应用",
+      "description": "面向移动端的音乐发现、搜索与沉浸式播放体验。",
+      "longDescription": "围绕热门歌曲、歌手、搜索、播放列表与歌词进度，打造完整的移动端音乐播放器。",
+      "image": "/assets/hyl-music-preview.png",
+      "stack": ["React", "Umi", "Cloudflare Containers"],
+      "stars": null,
+      "featured": false,
+      "visible": true,
+      "previewUrl": "https://music.elin521.cn",
+      "githubUrl": "https://github.com/xinnian999/hyl-music",
+      "installCommand": "",
+      "details": [
+        ["项目背景", "为日常编码时的音乐陪伴打造一套移动端体验，把发现、搜索、播放和歌词整合在同一个应用中。"],
+        ["技术方案", "前端基于 React、Umi、Redux 与 Ant Design Mobile；Cloudflare Worker 将 API 请求转发到运行 Node 音乐服务的 Container。"],
+        ["项目状态", "已恢复并部署到独立域名，支持热门歌曲、歌手、搜索、播放列表、歌词和播放进度控制。"]
+      ]
     }
   ]
 }
