@@ -100,6 +100,26 @@
         ["技术方案", "前端基于 React、Umi、Redux 与 Ant Design Mobile；Cloudflare Worker 将 API 请求转发到运行 Node 音乐服务的 Container。"],
         ["项目状态", "已恢复并部署到独立域名，支持热门歌曲、歌手、搜索、播放列表、歌词和播放进度控制。"]
       ]
+    },
+    {
+      "id": "sky-star-album",
+      "name": "星空照片墙",
+      "eyebrow": "3D 互动相册",
+      "description": "将照片组织成可切换的 3D 墙、球体、螺旋与网格。",
+      "longDescription": "用 Three.js CSS3D 与补间动画，把平面照片变成可旋转、缩放和切换布局的沉浸式相册。",
+      "image": "/assets/sky-star-album-preview.jpg",
+      "stack": ["Three.js", "CSS3D", "Tween.js"],
+      "stars": null,
+      "featured": false,
+      "visible": true,
+      "previewUrl": "",
+      "githubUrl": "https://github.com/xinnian999/sky-star-album",
+      "installCommand": "",
+      "details": [
+        ["项目背景", "为照片展示增加空间感和互动性，让相册不再局限于静态列表或普通轮播。"],
+        ["技术方案", "基于 Three.js CSS3DRenderer 渲染照片元素，使用 Tween.js 在照片墙、球体、螺旋和网格布局之间平滑过渡，并支持轨迹球视角控制。"],
+        ["项目状态", "源码已同步到 GitHub，可直接以静态站点方式运行和二次定制。"]
+      ]
     }
   ]
 }
