@@ -1,5 +1,6 @@
 <template>
   <div class="typewriter-banner" v-if="lines.length > 0">
+    <span v-for="line in lines" :key="line" class="typewriter-reserve" aria-hidden="true">{{ line }}|</span>
     <span class="typewriter-text">{{ displayText }}<span class="cursor" :class="{ blink: !isTyping }">|</span></span>
   </div>
 </template>
@@ -82,16 +83,30 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 .typewriter-banner {
+  display: grid;
+  place-items: center;
+  width: 100%;
   text-align: center;
   padding: 8px 0 4px;
   pointer-events: none;
 }
 
-.typewriter-text {
+.typewriter-text,
+.typewriter-reserve {
+  grid-area: 1 / 1;
   font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.75);
   font-weight: 400;
+  line-height: 1.5;
   letter-spacing: 0.5px;
+}
+
+.typewriter-text {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.typewriter-reserve {
+  visibility: hidden;
+  user-select: none;
 }
 
 .cursor {
