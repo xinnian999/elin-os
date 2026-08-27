@@ -110,7 +110,16 @@
     <!-- 社交链接 -->
     <div class="social-grid">
       <a v-for="s in store.socials" :key="s.id" :href="s.url" target="_blank" class="social-card" :style="{'--c': s.color}">
-        <i :class="['iconfont', getIcon(s.icon)]"></i>
+        <svg v-if="s.icon === 'github'" class="social-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.87c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.6 9.6 0 0 1 12 6.82a9.6 9.6 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.86V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z" />
+        </svg>
+        <svg v-else-if="s.icon === 'mail'" class="social-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.5 6.5h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" />
+          <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m3.2 7.4 7.35 5.65a2.35 2.35 0 0 0 2.9 0L20.8 7.4" />
+        </svg>
+        <svg v-else class="social-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.5 14.5 14.5 9m-7.8 8.3-1 1a3.25 3.25 0 0 1-4.6-4.6l3.1-3.1a3.25 3.25 0 0 1 4.6 0m6.4 2.8a3.25 3.25 0 0 0 4.6 0l3.1-3.1a3.25 3.25 0 0 0-4.6-4.6l-1 1a3.25 3.25 0 0 0 0 4.6" />
+        </svg>
         <span class="social-name">{{ s.name }}</span>
       </a>
     </div>
@@ -148,7 +157,6 @@ const avatarUrl = computed(() => {
 })
 const avatarIsImage = computed(() => !!avatarUrl.value)
 
-const getIcon = (i) => `icon-${i}`
 </script>
 
 <style lang="scss" scoped>
@@ -359,6 +367,16 @@ const getIcon = (i) => `icon-${i}`
   &:active { transform: scale(0.95); }
 }
 
-.social-icon { font-size: 18px; }
+.social-icon {
+  width: 21px;
+  height: 21px;
+  color: var(--c);
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--c) 45%, transparent));
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+.social-card:hover .social-icon {
+  transform: translateY(-1px) scale(1.12);
+  filter: drop-shadow(0 0 10px var(--c));
+}
 .social-name { font-size: 0.6rem; color: rgba(255,255,255,0.7); text-align: center; }
 </style>
