@@ -10,11 +10,11 @@
       <div class="contrib-stats">
         <div class="stat-item">
           <span class="stat-value">{{ contribData.total }}</span>
-          <span class="stat-label">今年贡献</span>
+          <span class="stat-label">近一年贡献</span>
         </div>
         <div class="stat-item">
           <span class="stat-value">{{ contribData.streak }}</span>
-          <span class="stat-label">连续天数</span>
+          <span class="stat-label">当前连续</span>
         </div>
       </div>
 
@@ -72,119 +72,21 @@ const getLevelClass = (count) => {
   return 'level-4'
 }
 
-// 获取GitHub token和用户名
-const getConfig = () => {
-  try {
-    // 从 localStorage 获取（用户在设置中配置的）
-    const githubUser = localStorage.getItem('github_user') || ''
-    const githubToken = localStorage.getItem('github_token') || ''
-    return { user: githubUser, token: githubToken }
-  } catch {
-    return { user: '', token: '' }
-  }
-}
-
 const fetchContrib = async () => {
   loading.value = true
   error.value = ''
 
-  const { user, token } = getConfig()
-
-  if (!user) {
-    // 没有配置用户名，显示示例数据
-    contribData.value = generateDemoData()
-    loading.value = false
-    return
-  }
-
   try {
-    const headers = {
-      'Accept': 'application/vnd.github.v3+json'
-    }
-    if (token) {
-      headers['Authorization'] = `token ${token}`
-    }
-
-    const res = await fetch(`https://api.github.com/users/${user}/events?per_page=100`, { headers })
-
-    if (!res.ok) {
-      throw new Error('获取失败')
-    }
-
-    const events = await res.json()
-    const contribMap = {}
-    const today = new Date()
-    const oneYearAgo = new Date(today)
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
-
-    // 统计每日贡献
-    events.forEach(event => {
-      const date = event.created_at.split('T')[0]
-      if (new Date(date) >= oneYearAgo) {
-        contribMap[date] = (contribMap[date] || 0) + 1
-      }
-    })
-
-    // 生成周数据（过去52周）
-    const weeks = []
-    let currentStreak = 0
-    let maxStreak = 0
-    let total = 0
-
-    for (let i = 51; i >= 0; i--) {
-      const week = []
-      for (let j = 0; j < 7; j++) {
-        const d = new Date(today)
-        d.setDate(d.getDate() - (i * 7 + (6 - j)))
-        const dateStr = d.toISOString().split('T')[0]
-        const count = contribMap[dateStr] || 0
-        week.push({ date: dateStr, count })
-        total += count
-
-        if (count > 0) {
-          currentStreak++
-          maxStreak = Math.max(maxStreak, currentStreak)
-        } else {
-          currentStreak = 0
-        }
-      }
-      weeks.push(week)
-    }
-
-    contribData.value = {
-      weeks,
-      total,
-      streak: maxStreak
-    }
-
+    const res = await fetch('/api/github-contributions', { cache: 'no-store' })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || '获取失败')
+    contribData.value = data
   } catch (e) {
-    error.value = e.message
-    // 失败时显示示例
-    contribData.value = generateDemoData()
+    contribData.value = null
+    error.value = e instanceof Error ? e.message : '无法加载贡献数据'
+  } finally {
+    loading.value = false
   }
-
-  loading.value = false
-}
-
-// 生成示例数据
-const generateDemoData = () => {
-  const weeks = []
-  const today = new Date()
-
-  for (let i = 51; i >= 0; i--) {
-    const week = []
-    for (let j = 0; j < 7; j++) {
-      const d = new Date(today)
-      d.setDate(d.getDate() - (i * 7 + (6 - j)))
-      week.push({
-        date: d.toISOString().split('T')[0],
-        count: Math.random() > 0.7 ? Math.floor(Math.random() * 10) : 0
-      })
-    }
-    weeks.push(week)
-  }
-
-  return { weeks, total: 126, streak: 5 }
 }
 
 onMounted(() => {

@@ -7,6 +7,8 @@ const WORKS_KEY = "portfolio:works:v1";
 const PROFILE_KEY = "portfolio:profile:v1";
 const HOME_KEY = "portfolio:home:v2";
 const STAR_TTL_SECONDS = 30 * 60;
+const CONTRIBUTIONS_TTL_SECONDS = 15 * 60;
+const MAX_GITHUB_HTML_BYTES = 512 * 1024;
 const MAX_CONFIG_BYTES = 96 * 1024;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_LOGIN_BYTES = 1024;
@@ -33,6 +35,21 @@ type ProfileConfig = {
 type HomeConfig = {
   home: ReturnType<typeof normalizeHome>;
   updatedAt: string | null;
+};
+
+type ContributionDay = {
+  date: string;
+  count: number;
+};
+
+type GithubContributionsData = {
+  username: string;
+  total: number;
+  streak: number;
+  weeks: ContributionDay[][];
+  from: string;
+  to: string;
+  updatedAt: string;
 };
 
 function json(data: unknown, init: ResponseInit = {}): Response {
@@ -295,6 +312,125 @@ async function githubStars(env: Env, repository: string, fallback: number | null
   }
 }
 
+function githubUsername(profileUrl: string): string | null {
+  try {
+    const url = new URL(profileUrl);
+    if (url.hostname !== "github.com" && url.hostname !== "www.github.com") return null;
+    const username = url.pathname.split("/").filter(Boolean)[0] || "";
+    return /^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/i.test(username) ? username : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readLimitedText(response: Response, maxBytes: number): Promise<string> {
+  const contentLength = Number(response.headers.get("Content-Length") || 0);
+  if (contentLength > maxBytes) throw new Error("GitHub contribution response is too large");
+  if (!response.body) return "";
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let result = "";
+  let bytesRead = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytesRead += value.byteLength;
+    if (bytesRead > maxBytes) {
+      await reader.cancel("Response exceeded size limit");
+      throw new Error("GitHub contribution response is too large");
+    }
+    result += decoder.decode(value, { stream: true });
+  }
+  return result + decoder.decode();
+}
+
+function previousUtcDate(date: string): string {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() - 1);
+  return value.toISOString().slice(0, 10);
+}
+
+function parseGithubContributions(html: string, username: string): GithubContributionsData {
+  const dayIds = new Map<string, string>();
+  const dayTag = /<td\b(?=[^>]*\bdata-date="(\d{4}-\d{2}-\d{2})")(?=[^>]*\bid="([^"]+)")(?=[^>]*\bclass="[^"]*\bContributionCalendar-day\b)[^>]*>/g;
+  for (const match of html.matchAll(dayTag)) dayIds.set(match[2], match[1]);
+
+  const counts = new Map<string, number>();
+  const tooltip = /<tool-tip\b(?=[^>]*\bfor="([^"]+)")[^>]*>([^<]*)<\/tool-tip>/g;
+  for (const match of html.matchAll(tooltip)) {
+    const date = dayIds.get(match[1]);
+    if (!date) continue;
+    const countMatch = match[2].trim().match(/^(\d+) contributions? on\b/i);
+    counts.set(date, countMatch ? Number(countMatch[1]) : 0);
+  }
+
+  const days = [...counts.entries()]
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (days.length < 350) throw new Error("GitHub contribution calendar format changed");
+
+  const weeks: ContributionDay[][] = [];
+  for (let index = 0; index < days.length; index += 7) weeks.push(days.slice(index, index + 7));
+
+  const total = days.reduce((sum, day) => sum + day.count, 0);
+  let cursor = days.at(-1)?.date || "";
+  if (cursor && (counts.get(cursor) || 0) === 0) cursor = previousUtcDate(cursor);
+  let streak = 0;
+  while (cursor && (counts.get(cursor) || 0) > 0) {
+    streak += 1;
+    cursor = previousUtcDate(cursor);
+  }
+
+  return {
+    username,
+    total,
+    streak,
+    weeks,
+    from: days[0].date,
+    to: days[days.length - 1].date,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function publicGithubContributions(env: Env): Promise<Response> {
+  const { profile } = await readProfile(env);
+  const username = githubUsername(profile.githubUrl);
+  if (!username) return json({ error: "GitHub 用户名未配置" }, { status: 404, headers: { "Cache-Control": "no-store" } });
+
+  const cacheKey = `github:contributions:v1:${username.toLowerCase()}`;
+  const cached = await env.WORKS.get<GithubContributionsData>(cacheKey, { type: "json", cacheTtl: 60 });
+  if (cached) {
+    return json(cached, { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=600" } });
+  }
+
+  try {
+    const response = await fetch(`https://github.com/users/${encodeURIComponent(username)}/contributions`, {
+      headers: {
+        Accept: "text/html",
+        "Accept-Language": "en-US,en;q=0.9",
+        "User-Agent": "elin-os-portfolio",
+      },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok) {
+      console.warn(JSON.stringify({ message: "github contributions unavailable", username, status: response.status }));
+      return json({ error: "GitHub 贡献数据暂时不可用" }, { status: 502, headers: { "Cache-Control": "no-store" } });
+    }
+    const contentType = response.headers.get("Content-Type") || "";
+    if (!contentType.includes("text/html")) {
+      return json({ error: "GitHub 贡献数据格式异常" }, { status: 502, headers: { "Cache-Control": "no-store" } });
+    }
+
+    const data = parseGithubContributions(await readLimitedText(response, MAX_GITHUB_HTML_BYTES), username);
+    await env.WORKS.put(cacheKey, JSON.stringify(data), { expirationTtl: CONTRIBUTIONS_TTL_SECONDS });
+    return json(data, { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=600" } });
+  } catch (error) {
+    console.warn(JSON.stringify({ message: "github contributions request failed", username, error: error instanceof Error ? error.message : String(error) }));
+    return json({ error: "GitHub 贡献数据暂时不可用" }, { status: 502, headers: { "Cache-Control": "no-store" } });
+  }
+}
+
 async function publicWorks(env: Env): Promise<Response> {
   const config = await readConfig(env);
   const projects = await Promise.all(config.projects.map(async (project) => {
@@ -394,6 +530,7 @@ export default {
       if (request.method === "GET" && url.pathname === "/api/home") return publicHome(env);
       if (request.method === "GET" && url.pathname === "/api/visitor") return publicVisitor(request);
       if (request.method === "GET" && url.pathname === "/api/weather") return publicWeather(request);
+      if (request.method === "GET" && url.pathname === "/api/github-contributions") return publicGithubContributions(env);
       if (request.method === "GET" && url.pathname.startsWith("/media/")) return serveMedia(request, env, url.pathname);
 
       if (url.pathname.startsWith("/api/admin/")) {
