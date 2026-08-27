@@ -1,12 +1,17 @@
 import defaultConfig from "../src/data/default-projects.json";
 import defaultProfile from "../src/data/default-profile.json";
-import { normalizeProfile, normalizeProjects, parseGithubRepository } from "./schema";
+import defaultHome from "../src/data/default-home.json";
+import { normalizeHome, normalizeProfile, normalizeProjects, parseGithubRepository } from "./schema";
 
 const WORKS_KEY = "portfolio:works:v1";
 const PROFILE_KEY = "portfolio:profile:v1";
+const HOME_KEY = "portfolio:home:v2";
 const STAR_TTL_SECONDS = 30 * 60;
 const MAX_CONFIG_BYTES = 96 * 1024;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_LOGIN_BYTES = 1024;
+const SESSION_COOKIE = "elin_admin_session";
+const SESSION_SECONDS = 30 * 24 * 60 * 60;
 const IMAGE_TYPES: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -21,6 +26,11 @@ type WorksConfig = {
 
 type ProfileConfig = {
   profile: ReturnType<typeof normalizeProfile>;
+  updatedAt: string | null;
+};
+
+type HomeConfig = {
+  home: ReturnType<typeof normalizeHome>;
   updatedAt: string | null;
 };
 
@@ -40,16 +50,86 @@ async function verifyToken(provided: string, expected: string): Promise<boolean>
   return crypto.subtle.timingSafeEqual(providedHash, expectedHash);
 }
 
+function base64Url(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
+}
+
+function cookieValue(request: Request, name: string): string {
+  const cookies = request.headers.get("Cookie") || "";
+  for (const part of cookies.split(";")) {
+    const [key, ...value] = part.trim().split("=");
+    if (key === name) return value.join("=");
+  }
+  return "";
+}
+
+async function hmac(value: string, secret: string): Promise<Uint8Array> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(value)));
+}
+
+async function createSession(secret: string): Promise<string> {
+  const expiresAt = Date.now() + SESSION_SECONDS * 1000;
+  const payload = `${expiresAt}.${crypto.randomUUID()}`;
+  return `${payload}.${base64Url(await hmac(payload, secret))}`;
+}
+
+async function verifySession(value: string, secret: string): Promise<boolean> {
+  const parts = value.split(".");
+  if (parts.length !== 3) return false;
+  const payload = `${parts[0]}.${parts[1]}`;
+  const expiresAt = Number(parts[0]);
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return false;
+  const expected = base64Url(await hmac(payload, secret));
+  return verifyToken(parts[2], expected);
+}
+
 async function isAuthorized(request: Request, env: Env): Promise<boolean> {
   if (!env.ADMIN_TOKEN) return false;
-  const authorization = request.headers.get("Authorization") || "";
-  const provided = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
-  return verifyToken(provided, env.ADMIN_TOKEN);
+  const session = cookieValue(request, SESSION_COOKIE);
+  return session ? verifySession(session, env.ADMIN_TOKEN) : false;
 }
 
 async function requireAuthorization(request: Request, env: Env): Promise<Response | null> {
   if (await isAuthorized(request, env)) return null;
-  return json({ error: "管理密钥无效" }, { status: 401, headers: { "WWW-Authenticate": "Bearer" } });
+  return json({ error: "登录已失效，请重新输入管理密码" }, { status: 401, headers: { "Cache-Control": "no-store" } });
+}
+
+function sameOrigin(request: Request): boolean {
+  const origin = request.headers.get("Origin");
+  return !origin || origin === new URL(request.url).origin;
+}
+
+async function login(request: Request, env: Env): Promise<Response> {
+  if (!sameOrigin(request)) return json({ error: "请求来源无效" }, { status: 403 });
+  const contentLength = Number(request.headers.get("Content-Length") || 0);
+  if (!contentLength || contentLength > MAX_LOGIN_BYTES) return json({ error: "登录请求格式错误" }, { status: 400 });
+  const body = await request.json<unknown>();
+  const password = body && typeof body === "object" && !Array.isArray(body) ? (body as { password?: unknown }).password : "";
+  if (typeof password !== "string" || !env.ADMIN_TOKEN || !(await verifyToken(password, env.ADMIN_TOKEN))) {
+    return json({ error: "管理密码错误" }, { status: 401, headers: { "Cache-Control": "no-store" } });
+  }
+  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
+  const session = await createSession(env.ADMIN_TOKEN);
+  return json({ ok: true }, {
+    headers: {
+      "Cache-Control": "no-store",
+      "Set-Cookie": `${SESSION_COOKIE}=${session}; Path=/api/admin; HttpOnly; SameSite=Strict; Max-Age=${SESSION_SECONDS}${secure}`,
+    },
+  });
+}
+
+function logout(request: Request): Response {
+  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
+  return json({ ok: true }, {
+    headers: {
+      "Cache-Control": "no-store",
+      "Set-Cookie": `${SESSION_COOKIE}=; Path=/api/admin; HttpOnly; SameSite=Strict; Max-Age=0${secure}`,
+    },
+  });
 }
 
 async function readConfig(env: Env): Promise<WorksConfig> {
@@ -74,6 +154,17 @@ async function readProfile(env: Env): Promise<ProfileConfig> {
   }
 }
 
+async function readHome(env: Env): Promise<HomeConfig> {
+  const stored = await env.WORKS.get<HomeConfig>(HOME_KEY, { type: "json", cacheTtl: 30 });
+  if (!stored) return { home: normalizeHome(defaultHome), updatedAt: null };
+  try {
+    return { home: normalizeHome(stored.home), updatedAt: stored.updatedAt || null };
+  } catch (error) {
+    console.error(JSON.stringify({ message: "invalid home config in KV", error: error instanceof Error ? error.message : String(error) }));
+    return { home: normalizeHome(defaultHome), updatedAt: null };
+  }
+}
+
 async function githubStars(env: Env, repository: string, fallback: number | null): Promise<number | null> {
   const cacheKey = `github:stars:${repository.toLowerCase()}`;
   const cached = await env.WORKS.get(cacheKey, { type: "text", cacheTtl: 30 });
@@ -85,6 +176,7 @@ async function githubStars(env: Env, repository: string, fallback: number | null
   try {
     const response = await fetch(`https://img.shields.io/github/stars/${repository}.json`, {
       headers: { Accept: "application/json", "User-Agent": "elin-os-portfolio" },
+      signal: AbortSignal.timeout(2_500),
     });
     if (!response.ok) {
       console.warn(JSON.stringify({ message: "github stars unavailable", repository, status: response.status }));
@@ -118,6 +210,10 @@ async function publicProfile(env: Env): Promise<Response> {
   return json(await readProfile(env), { headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=120" } });
 }
 
+async function publicHome(env: Env): Promise<Response> {
+  return json(await readHome(env), { headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=120" } });
+}
+
 async function saveWorks(request: Request, env: Env): Promise<Response> {
   const contentLength = Number(request.headers.get("Content-Length") || 0);
   if (!contentLength) return json({ error: "无法确认配置大小" }, { status: 411 });
@@ -139,6 +235,18 @@ async function saveProfile(request: Request, env: Env): Promise<Response> {
   const profile = normalizeProfile((body as { profile?: unknown }).profile);
   const config: ProfileConfig = { profile, updatedAt: new Date().toISOString() };
   await env.WORKS.put(PROFILE_KEY, JSON.stringify(config));
+  return json(config);
+}
+
+async function saveHome(request: Request, env: Env): Promise<Response> {
+  const contentLength = Number(request.headers.get("Content-Length") || 0);
+  if (!contentLength) return json({ error: "无法确认配置大小" }, { status: 411 });
+  if (contentLength > MAX_CONFIG_BYTES) return json({ error: "主页配置过大" }, { status: 413 });
+  const body = await request.json<unknown>();
+  if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "请求格式错误" }, { status: 400 });
+  const home = normalizeHome((body as { home?: unknown }).home);
+  const config: HomeConfig = { home, updatedAt: new Date().toISOString() };
+  await env.WORKS.put(HOME_KEY, JSON.stringify(config));
   return json(config);
 }
 
@@ -184,14 +292,25 @@ export default {
     try {
       if (request.method === "GET" && url.pathname === "/api/works") return publicWorks(env);
       if (request.method === "GET" && url.pathname === "/api/profile") return publicProfile(env);
+      if (request.method === "GET" && url.pathname === "/api/home") return publicHome(env);
       if (request.method === "GET" && url.pathname.startsWith("/media/")) return serveMedia(request, env, url.pathname);
 
       if (url.pathname.startsWith("/api/admin/")) {
+        if (url.pathname === "/api/admin/session") {
+          if (request.method === "POST") return login(request, env);
+          if (request.method === "DELETE") return logout(request);
+          if (request.method === "GET") {
+            return (await isAuthorized(request, env))
+              ? json({ ok: true }, { headers: { "Cache-Control": "no-store" } })
+              : json({ error: "未登录" }, { status: 401, headers: { "Cache-Control": "no-store" } });
+          }
+        }
         const unauthorized = await requireAuthorization(request, env);
         if (unauthorized) return unauthorized;
-        if (request.method === "POST" && url.pathname === "/api/admin/session") return json({ ok: true });
+        if (!sameOrigin(request)) return json({ error: "请求来源无效" }, { status: 403 });
         if (request.method === "PUT" && url.pathname === "/api/admin/works") return saveWorks(request, env);
         if (request.method === "PUT" && url.pathname === "/api/admin/profile") return saveProfile(request, env);
+        if (request.method === "PUT" && url.pathname === "/api/admin/home") return saveHome(request, env);
         if (request.method === "POST" && url.pathname === "/api/admin/media") return uploadMedia(request, env);
         return json({ error: "接口不存在" }, { status: 404 });
       }

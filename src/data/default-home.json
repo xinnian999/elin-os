@@ -1,0 +1,21 @@
+{
+  "site": {
+    "avatar": "E",
+    "startDate": "2026-08-20",
+    "typewriterLines": [
+      "欢迎来到 Elin 的数字空间 👋",
+      "把复杂问题做成自然、可靠的产品体验 ✨",
+      "AI 应用 · 前端工程 · 开源创造",
+      "以好奇心与长期主义构建"
+    ],
+    "countdownName": "2027 新年倒计时",
+    "countdownDate": "2027-01-01"
+  },
+  "announcement": {
+    "enabled": true,
+    "text": "✨ Elin 2.0 · 保持好奇，持续构建",
+    "speed": 48,
+    "backgroundColor": "rgba(0, 212, 255, 0.1)",
+    "textColor": "#00d4ff"
+  }
+}

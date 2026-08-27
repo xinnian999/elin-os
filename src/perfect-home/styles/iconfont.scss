@@ -1,0 +1,55 @@
+/* iconfont 图标库 - 使用 iconfont.cn 生成 */
+/* 这里使用阿里巴巴开源的 iconfont 服务 */
+
+@font-face {
+  font-family: 'iconfont';
+  src: url('https://at.alicdn.com/t/c/font_4215863_lfvb4ilo9qm.woff2?t=1711900000000') format('woff2'),
+       url('https://at.alicdn.com/t/c/font_4215863_lfvb4ilo9qm.woff?t=1711900000000') format('woff'),
+       url('https://at.alicdn.com/t/c/font_4215863_lfvb4ilo9qm.ttf?t=1711900000000') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+.iconfont {
+  font-family: 'iconfont' !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: inline-block;
+  vertical-align: -0.125em;
+}
+
+/* 图标映射 */
+.icon-github::before { content: '\e63f'; }
+.icon-twitter::before { content: '\e61e'; }
+.icon-mail::before { content: '\e60e'; }
+.icon-link::before { content: '\e64b'; }
+.icon-code::before { content: '\e62b'; }
+.icon-user::before { content: '\e60d'; }
+.icon-folder::before { content: '\e60f'; }
+.icon-camera::before { content: '\e610'; }
+.icon-book::before { content: '\e611'; }
+.icon-music::before { content: '\e612'; }
+.icon-telegram::before { content: '\e613'; }
+.icon-bilibili::before { content: '\e614'; }
+.icon-youtube::before { content: '\e615'; }
+.icon-gitee::before { content: '\e616'; }
+.icon-blog::before { content: '\e617'; }
+
+/* 主题色跟随 */
+.iconfont {
+  color: inherit;
+  transition: color 0.3s ease;
+}
+
+/* 悬浮效果 */
+.social-card .iconfont {
+  transition: all 0.3s ease;
+}
+
+.social-card:hover .iconfont {
+  transform: scale(1.2);
+  filter: drop-shadow(0 0 8px currentColor);
+}

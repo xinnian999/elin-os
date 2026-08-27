@@ -1,0 +1,79 @@
+// ==================== 颜色变量 ====================
+$primary: #00d4ff;
+$secondary: #7b2ff7;
+$accent: #ff0089;
+$text: #ffffff;
+$text-light: rgba(255, 255, 255, 0.6);
+$text-dark: #1a1a2e;
+$bg-dark: #0a0a0f;
+$bg-card: rgba(26, 26, 46, 0.8);
+$border: rgba(255, 255, 255, 0.1);
+$shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+$glow: 0 0 20px rgba(0, 212, 255, 0.4);
+
+// ==================== 渐变 ====================
+$gradient-primary: linear-gradient(135deg, $primary, $secondary);
+$gradient-accent: linear-gradient(135deg, $secondary, $accent);
+$gradient-rainbow: linear-gradient(135deg, $primary, $secondary, $accent);
+
+// ==================== 字体 ====================
+$font-main: 'HarmonyOS Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+$font-logo: 'Pacifico', cursive;
+
+// ==================== 尺寸 ====================
+$border-radius: 16px;
+$border-radius-sm: 8px;
+$border-radius-lg: 24px;
+
+// ==================== 动画 ====================
+$transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-fast: all 0.15s ease;
+
+// ==================== 响应式断点 ====================
+$mobile: 720px;
+$tablet: 1024px;
+$desktop: 1200px;
+
+// ==================== Mixins ====================
+@mixin glass {
+  background: $bg-card;
+  backdrop-filter: blur(20px);
+  border: 1px solid $border;
+}
+
+@mixin glow-border {
+  box-shadow: $glow;
+  border-color: rgba(0, 212, 255, 0.3);
+}
+
+@mixin text-gradient {
+  background: $gradient-primary;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@mixin hover-lift {
+  transition: $transition;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: $shadow, $glow;
+  }
+}
+
+@mixin scrollbar {
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  }
+}

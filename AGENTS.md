@@ -21,11 +21,11 @@
 - 对外身份只使用 `Elin`。不要在界面文案、元数据、资源或代码注释中暴露用户真实姓名。
 - 这是一个聚焦的中文单页作品集：先展示个人介绍，再展示项目墙。不要新增路由或无关板块。
 - 已选定的视觉方向是连续、动态的极光与山景全景背景，搭配半透明深蓝色项目界面。
+- 2.0 主页完整采用 perfect-home 的 Vue 数字桌面，包括其原版背景、身份卡、时间胶囊、天气、访客、世界时钟、一言、倒计时、番茄钟、便签、待办、GitHub 贡献、主题、粒子和音乐等能力；只将 Elin 1.0 的简介、作品和链接数据套入其中。保留其页面内配置编辑器外观，但认证必须使用 Worker Secret，配置保存到 Cloudflare KV，作品图片上传到 R2；不再维护独立 `/admin` 页面。
 - 在“精选作品”中，Vue Form Craft 是唯一的通栏主项目，也是唯一显示 GitHub Star 数量的项目；小筑、yl-code 和图虫 Tuchong 使用同级的次要卡片。
 - 点击项目卡片时，在当前页面打开详情弹窗，不跳转到项目详情路由。
 - 使用真实的产品截图、预览链接和 GitHub 仓库。Vue Form Craft 链接到 `form.elin521.cn/form-design`；小筑链接到 `xiaozhu.elin521.cn`；yl-code 不提供在线预览按钮，只在详情弹窗中说明如何安装 npm 包。
 - 主页内容由线上配置驱动：简介从 `/api/profile`、作品从 `/api/works` 读取 Cloudflare KV 中的配置，配置不存在或接口异常时回退到仓库内置默认数据。
-- `/admin` 是整个 Elin 主页的通用管理入口，不是“作品墙管理页”。一级信息架构按主页内容模块组织；当前包含“简介”和“作品”，以后新增主页模块继续在这里扩展。
-- 不要在公开页面展示管理入口。管理密钥只能存为 Cloudflare Worker Secret，不得写入源码、配置文件或 GitHub。
+- 页面右下角的内嵌编辑器是唯一管理入口，负责简介、作品与主页文案；管理密码只能存为 Cloudflare Worker Secret，不得写入源码、配置文件、localStorage 或 GitHub。登录成功后由 Worker 签发 HttpOnly、SameSite=Strict 的短期会话 Cookie，浏览器不得保存密码或原始 Secret。
 - 作品图片上传到 `elin-os-media` R2 Bucket，通过 `/media/*` 读取；主页简介以及作品文字、链接、排序和展示状态保存在 `elin-os-works` KV Namespace。
 - GitHub Star 统一由 `/api/works` 的 Worker 通过 Shields.io JSON 获取，并在 KV 中缓存 30 分钟；不要让浏览器直连 GitHub 公共 API，匿名共享限流会产生 403，也不要继续手工维护 Star 数字。

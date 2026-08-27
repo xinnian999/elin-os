@@ -1,0 +1,444 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+
+export const mainStore = defineStore('main', () => {
+  // ==================== 配置 ====================
+  const config = ref(null)
+
+  const setConfig = (cfg) => {
+    config.value = cfg
+    if (cfg?.socials) {
+      socials.value = cfg.socials.map(s => ({ ...s }))
+      // 同步到 localStorage
+      localStorage.setItem('socials', JSON.stringify(socials.value))
+    }
+    if (cfg?.links) {
+      links.value = cfg.links.map(l => ({ ...l }))
+      // 同步到 localStorage
+      localStorage.setItem('siteLinks', JSON.stringify(links.value))
+    }
+    if (cfg?.site) {
+      siteStartDate.value = cfg.site.startDate
+      siteStartShow.value = cfg.site.description?.showStartDate ?? true
+      if (cfg.site.github) localStorage.setItem('github_user', cfg.site.github)
+    }
+  }
+
+  // ==================== 基础状态 ====================
+  const imgLoadStatus = ref(false)
+  const innerWidth = ref(window.innerWidth)
+  const siteStartDate = ref('2024-01-01')
+  const siteStartShow = ref(true)
+  const now = ref(new Date())
+
+  // 主题设置
+  const themeMode = ref(localStorage.getItem('themeMode') || 'auto')
+  const activeTheme = ref(localStorage.getItem('activeTheme') || 'cyberpunk')
+
+  // 预设主题配置
+  const themes = {
+    cyberpunk: {
+      name: '赛博朋克',
+      primary: '#00d4ff',
+      secondary: '#7b2ff7',
+      gradient: 'linear-gradient(135deg, #00d4ff 0%, #7b2ff7 100%)',
+      glass: 'rgba(0, 212, 255, 0.1)',
+      glow: 'rgba(0, 212, 255, 0.3)'
+    },
+    sunset: {
+      name: '落日余晖',
+      primary: '#ff6b6b',
+      secondary: '#ffa502',
+      gradient: 'linear-gradient(135deg, #ff6b6b 0%, #ffa502 100%)',
+      glass: 'rgba(255, 107, 107, 0.1)',
+      glow: 'rgba(255, 107, 107, 0.3)'
+    },
+    forest: {
+      name: '清新森林',
+      primary: '#26de81',
+      secondary: '#20bf6b',
+      gradient: 'linear-gradient(135deg, #26de81 0%, #20bf6b 100%)',
+      glass: 'rgba(38, 222, 129, 0.1)',
+      glow: 'rgba(38, 222, 129, 0.3)'
+    },
+    ocean: {
+      name: '深海之谜',
+      primary: '#4834d4',
+      secondary: '#686de0',
+      gradient: 'linear-gradient(135deg, #4834d4 0%, #686de0 100%)',
+      glass: 'rgba(72, 52, 212, 0.1)',
+      glow: 'rgba(72, 52, 212, 0.3)'
+    },
+    aurora: {
+      name: '极光幻彩',
+      primary: '#ff9ff3',
+      secondary: '#54a0ff',
+      gradient: 'linear-gradient(135deg, #ff9ff3 0%, #54a0ff 100%)',
+      glass: 'rgba(255, 159, 243, 0.1)',
+      glow: 'rgba(255, 159, 243, 0.3)'
+    }
+  }
+
+  const currentTheme = computed(() => themes[activeTheme.value] || themes.cyberpunk)
+
+  const setTheme = (themeKey) => {
+    if (themes[themeKey]) {
+      activeTheme.value = themeKey
+      localStorage.setItem('activeTheme', themeKey)
+      // 应用 CSS 变量
+      const t = themes[themeKey]
+      document.documentElement.style.setProperty('--theme-primary', t.primary)
+      document.documentElement.style.setProperty('--theme-secondary', t.secondary)
+      document.documentElement.style.setProperty('--theme-gradient', t.gradient)
+    }
+  }
+
+  const isNight = computed(() => {
+    if (themeMode.value === 'light') return false
+    if (themeMode.value === 'dark') return true
+    const h = new Date().getHours()
+    return h < 6 || h >= 18
+  })
+
+  const language = ref(localStorage.getItem('language') || 'zh')
+  const setLanguage = (lang) => {
+    language.value = lang
+    localStorage.setItem('language', lang)
+  }
+
+  // ==================== 设置面板 ====================
+  const setOpenState = ref(false)
+  const activeMenu = ref('wallpaper')
+
+  // ==================== 壁纸设置 ====================
+  const coverType = ref('default')
+
+  const defaultBgImages = ref([
+    'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=80',
+    'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=1920&q=80',
+    'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=1920&q=80',
+    'https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?w=1920&q=80',
+    'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=80'
+  ])
+
+  const dailyBgImages = ref([])
+  const currentDailyIndex = ref(0)
+
+  const sceneryBgImages = ref([
+    'https://picsum.photos/seed/nature1/1920/1080',
+    'https://picsum.photos/seed/landscape1/1920/1080',
+    'https://picsum.photos/seed/mountain1/1920/1080',
+    'https://picsum.photos/seed/ocean1/1920/1080',
+    'https://picsum.photos/seed/forest1/1920/1080',
+    'https://picsum.photos/seed/sky1/1920/1080'
+  ])
+
+  const animeBgImages = ref([
+    'https://picsum.photos/seed/anime1/1920/1080',
+    'https://picsum.photos/seed/anime2/1920/1080',
+    'https://picsum.photos/seed/anime3/1920/1080',
+    'https://picsum.photos/seed/anime4/1920/1080',
+    'https://picsum.photos/seed/anime5/1920/1080',
+    'https://picsum.photos/seed/anime6/1920/1080'
+  ])
+
+  const currentBgList = computed(() => {
+    switch (coverType.value) {
+      case 'daily': return dailyBgImages.value.length ? dailyBgImages.value : defaultBgImages.value
+      case 'random-scenery': return sceneryBgImages.value
+      case 'random-anime': return animeBgImages.value
+      default: return defaultBgImages.value
+    }
+  })
+
+  const currentBgIndex = ref(0)
+
+  const currentBg = computed(() => {
+    const list = currentBgList.value
+    if (!list.length) return defaultBgImages.value[0]
+    return list[currentBgIndex.value % list.length]
+  })
+
+  const nextBg = () => { currentBgIndex.value = (currentBgIndex.value + 1) % currentBgList.value.length }
+  const prevBg = () => { currentBgIndex.value = (currentBgIndex.value - 1 + currentBgList.value.length) % currentBgList.value.length }
+
+  const fetchDailyBg = async () => {
+    try {
+      const res = await fetch('https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8')
+      const data = await res.json()
+      if (data.images) {
+        dailyBgImages.value = data.images.map(img => `https://cn.bing.com${img.urlbase}_1920x1080.jpg`)
+      }
+    } catch (e) { console.error('获取每日一图失败:', e) }
+  }
+
+  const refreshRandomBg = (type) => {
+    if (type === 'scenery') {
+      sceneryBgImages.value = [
+        'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80',
+        'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1920&q=80',
+        'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1920&q=80',
+        'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1920&q=80',
+        'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?w=1920&q=80',
+        'https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=1920&q=80'
+      ]
+    } else if (type === 'anime') {
+      animeBgImages.value = [
+        'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1920&q=80',
+        'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1920&q=80',
+        'https://images.unsplash.com/photo-1614850523459-c2f4c699c52f?w=1920&q=80',
+        'https://images.unsplash.com/photo-1614732414444-096e5f1122d5?w=1920&q=80',
+        'https://images.unsplash.com/photo-1614851099175-e5b30eb6f696?w=1920&q=80',
+        'https://images.unsplash.com/photo-1614730370305-2c127d6fdb58?w=1920&q=80'
+      ]
+    }
+    coverType.value = type
+  }
+
+  const initWallpapers = () => { fetchDailyBg() }
+
+  // ==================== 音乐播放器 ====================
+  const musicOpenState = ref(false)
+  const musicClick = ref(true)
+  const musicVolume = ref(0.7)
+  const playerAutoplay = ref(false)
+  const playerLoop = ref('all')
+  const playerOrder = ref('list')
+  const playerState = ref(false)
+
+  const songs = ref([{ name: 'Player', artist: 'Demo', url: '', cover: '' }])
+  const currentSongIndex = ref(0)
+
+  const toggleMusicPanel = () => { if (musicClick.value) musicOpenState.value = !musicOpenState.value }
+  const setSongs = (newSongs) => { if (newSongs?.length > 0) { songs.value = newSongs; currentSongIndex.value = 0 } }
+
+  // ==================== 访客信息 ====================
+  const visitor = ref(null)
+  const fetchVisitor = async () => {
+    visitor.value = { city: '上海', country_name: '中国', ip: '隐私保护', isp: '欢迎访问 Elin OS', region: '上海' }
+  }
+
+  // ==================== 天气 ====================
+  const weather = ref(null)
+  const weatherLoading = ref(true)
+
+  const fetchWeather = async () => {
+    weatherLoading.value = true
+
+    weather.value = { temp: '--', humidity: '--', wind: '--', icon: '🌤️', text: '隐私模式', city: '上海' }
+    weatherLoading.value = false
+  }
+
+  const getWeatherIcon = (code) => {
+    // nxvav.cn 天气 code 映射（和风天气码）
+    const map = {
+      // 晴
+      '0': '☀️', '1': '🌤️', '2': '⛅', '3': '☁️',
+      // 雾/沙尘
+      '4': '🌫️', '5': '🌫️', '6': '🌫️', '7': '🌫️', '8': '🌫️', '9': '🌫️',
+      // 风
+      '10': '💨', '11': '🌫️', '12': '🌫️', '13': '🌫️', '14': '🌫️', '15': '🌫️', '16': '🌫️', '17': '🌫️', '18': '💨',
+      // 雨
+      '19': '🌧️', '20': '🌧️', '21': '🌧️', '22': '🌨️', '23': '🌨️', '24': '🌨️', '25': '🌨️',
+      // 阵雨
+      '26': '🌧️', '27': '🌧️', '28': '🌧️', '29': '⛈️',
+      // 雷阵雨/冰雹
+      '30': '⛈️', '31': '⛈️', '32': '⛈️', '33': '⛈️', '34': '⛈️',
+      // 雨夹雪
+      '35': '🌨️', '36': '🌨️',
+      // 阵雨/雷阵雨
+      '37': '🌧️', '38': '🌧️', '39': '🌧️',
+      // 雪
+      '40': '🌨️', '41': '❄️', '42': '🌨️', '43': '❄️', '44': '🌨️', '45': '🌫️', '46': '🌫️', '47': '🌫️', '48': '🌫️',
+      // 大雪/暴雪
+      '49': '❄️', '50': '🌨️', '51': '🌨️', '52': '🌨️',
+      // 冻雨
+      53: '🌨️', 54: '🌨️',
+      // 雨/雪
+      55: '🌧️', 56: '🌨️', 57: '🌧️', 58: '🌨️',
+      // 阵雨/雷阵雨
+      59: '🌧️', 60: '🌧️', 61: '🌧️', 62: '🌧️', 63: '🌧️', 64: '🌧️', 65: '🌧️', 66: '🌧️', 67: '🌧️',
+      // 雪
+      68: '🌨️', 69: '🌨️', 70: '🌨️', 71: '❄️', 72: '❄️', 73: '❄️', 74: '❄️', 75: '❄️', 76: '❄️', 77: '🌨️',
+      // 阵雪
+      78: '🌨️', 79: '🌨️',
+      // 阵雨
+      80: '🌧️', 81: '🌧️', 82: '🌧️',
+      // 雷阵雨
+      83: '⛈️', 84: '⛈️', 85: '🌨️', 86: '🌨️',
+      // 冰雹
+      87: '🧊', 88: '🧊',
+      // 雨/雪
+      89: '🌨️', 90: '🌨️',
+      // 雷阵雨/冰雹
+      91: '⛈️', 92: '⛈️', 93: '🌨️', 94: '🌨️', 95: '⛈️', 96: '⛈️', 99: '⛈️'
+    }
+    return map[code] !== undefined ? map[code] : '🌤️'
+  }
+
+  // ==================== 时间 ====================
+  setInterval(() => { now.value = new Date() }, 1000)
+
+  const timeStr = computed(() => now.value.toLocaleTimeString('zh-CN', { hour12: false }))
+  const dateStr = computed(() => now.value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }))
+
+  const greeting = computed(() => {
+    const h = now.value.getHours()
+    if (h >= 0 && h < 6) return '🌙 夜深了，注意休息~'
+    if (h >= 6 && h < 9) return '🌅 早上好，元气满满！'
+    if (h >= 9 && h < 12) return '☀️ 上午好，加油打工！'
+    if (h >= 12 && h < 14) return '🍚 中午好，记得吃饭！'
+    if (h >= 14 && h < 18) return '🌤️ 下午好，继续努力！'
+    if (h >= 18 && h < 21) return '🌆 傍晚好，辛苦了！'
+    return '🌙 晚上好，早点休息！'
+  })
+
+  // ==================== 时光进度 ====================
+  const dayProgress = computed(() => { const mins = now.value.getHours() * 60 + now.value.getMinutes(); return (mins / 1440 * 100).toFixed(1) })
+  const weekProgress = computed(() => { const day = now.value.getDay() || 7; const mins = (day - 1) * 1440 + now.value.getHours() * 60 + now.value.getMinutes(); return (mins / (7 * 1440) * 100).toFixed(1) })
+  const monthProgress = computed(() => { const days = new Date(now.value.getFullYear(), now.value.getMonth() + 1, 0).getDate(); return (now.value.getDate() / days * 100).toFixed(1) })
+  const yearProgress = computed(() => { const start = new Date(now.value.getFullYear(), 0, 1); const end = new Date(now.value.getFullYear() + 1, 0, 1); return ((now.value - start) / (end - start) * 100).toFixed(1) })
+
+  const siteDays = computed(() => { const start = new Date(siteStartDate.value); const today = new Date(); return Math.floor((today - start) / (1000 * 60 * 60 * 24)) })
+
+  // ==================== Hitokoto ====================
+  const hitokoto = ref({ text: '', from: '' })
+  const hitokotoLoading = ref(true)
+
+  const fetchHitokoto = async () => {
+    hitokotoLoading.value = true
+    try {
+      const res = await fetch('https://v1.hitokoto.cn')
+      const data = await res.json()
+      hitokoto.value = { text: data.hitokoto, from: (data.from_who || '匿名') + (data.from ? `《${data.from}》` : '') }
+    } catch { hitokoto.value = { text: '生活不止眼前的苟且，还有诗和远方。', from: '高晓松' } }
+    hitokotoLoading.value = false
+  }
+
+  // ==================== 番茄钟 ====================
+  const pomoDuration = ref(25)
+  const pomoTime = ref(25 * 60)
+  const pomoRunning = ref(false)
+  const pomoMode = ref('focus')
+  const pomoCompleted = ref(0)
+  const pomoStats = ref({})
+
+  let pomoTimer = null
+
+  const startPomo = () => {
+    pomoRunning.value = true
+    pomoTimer = setInterval(() => {
+      if (pomoTime.value > 0) { pomoTime.value-- }
+      else { pomoCompleted.value++; const today = new Date().toLocaleDateString(); pomoStats.value[today] = (pomoStats.value[today] || 0) + 1; stopPomo() }
+    }, 1000)
+  }
+
+  const stopPomo = () => { pomoRunning.value = false; if (pomoTimer) clearInterval(pomoTimer) }
+  const resetPomo = () => { stopPomo(); pomoTime.value = pomoDuration.value * 60 }
+  const setPomoDuration = (min) => { pomoDuration.value = min; resetPomo() }
+
+  // ==================== 便签板 ====================
+  const notesEnabled = ref(true)
+  const notes = ref(JSON.parse(localStorage.getItem('siteNotes') || '[]'))
+
+  const addNote = (content) => { notes.value.unshift({ id: Date.now(), content, time: new Date().toISOString() }); localStorage.setItem('siteNotes', JSON.stringify(notes.value)) }
+  const delNote = (id) => { notes.value = notes.value.filter(n => n.id !== id); localStorage.setItem('siteNotes', JSON.stringify(notes.value)) }
+
+  // ==================== 项目链接 ====================
+  const links = ref(JSON.parse(localStorage.getItem('siteLinks') || 'null') || [
+    { id: 1, name: '博客', url: 'https://blog.example.com', icon: 'code', color: '#3b82f6' },
+    { id: 2, name: '图库', url: 'https://photos.example.com', icon: 'camera', color: '#10b981' },
+    { id: 3, name: '项目', url: 'https://projects.example.com', icon: 'folder', color: '#8b5cf6' },
+    { id: 4, name: '关于', url: 'https://about.example.com', icon: 'user', color: '#f59e0b' }
+  ])
+
+  const saveLinks = () => localStorage.setItem('siteLinks', JSON.stringify(links.value))
+  const addLink = (link) => { links.value.push({ id: Date.now(), ...link }); saveLinks() }
+  const delLink = (id) => { links.value = links.value.filter(l => l.id !== id); saveLinks() }
+
+  // ==================== 社交链接 ====================
+  const socials = ref(JSON.parse(localStorage.getItem('socials') || 'null') || [
+    { id: 1, name: 'GitHub', url: 'https://github.com', icon: 'github', color: '#333' },
+    { id: 2, name: 'Gitee', url: 'https://gitee.com', icon: 'code', color: '#c71d23' },
+    { id: 3, name: 'B站', url: 'https://bilibili.com', icon: 'video', color: '#00a1d6' },
+    { id: 4, name: '邮箱', url: 'mailto:hi@example.com', icon: 'mail', color: '#ea4335' }
+  ])
+
+  const saveSocials = () => localStorage.setItem('socials', JSON.stringify(socials.value))
+  const addSocial = (social) => { socials.value.push({ id: Date.now(), ...social }); saveSocials() }
+  const delSocial = (id) => { socials.value = socials.value.filter(s => s.id !== id); saveSocials() }
+  const replaceSocials = (list) => { socials.value = list; saveSocials() }
+  const replaceLinks = (list) => { links.value = list; saveLinks() }
+
+  // 更新站点配置
+  const updateSiteConfig = (site) => {
+    siteStartDate.value = site.startDate || siteStartDate.value
+    siteStartShow.value = site.description?.showStartDate ?? siteStartShow.value
+    // 深度更新 config.site，触发响应式
+    if (config.value) {
+      config.value = {
+        ...config.value,
+        site: { ...config.value.site, ...site }
+      }
+    }
+  }
+
+  // ==================== 粒子效果 ====================
+  const particlesEnabled = ref(localStorage.getItem('particlesEnabled') !== 'false')
+  const setParticlesEnabled = (val) => {
+    particlesEnabled.value = val
+    localStorage.setItem('particlesEnabled', val)
+  }
+
+  // ==================== 自定义鼠标 ====================
+  const customCursorEnabled = ref(localStorage.getItem('customCursorEnabled') === 'true')
+  const setCustomCursorEnabled = (val) => {
+    customCursorEnabled.value = val
+    localStorage.setItem('customCursorEnabled', String(val))
+    // 开启时隐藏系统鼠标
+    document.documentElement.style.cursor = val ? 'none' : ''
+    document.body.style.cursor = val ? 'none' : ''
+  }
+  // 初始化时恢复状态
+  if (customCursorEnabled.value) {
+    document.documentElement.style.cursor = 'none'
+    document.body.style.cursor = 'none'
+  }
+
+  // ==================== 鼠标效果 ====================
+  const mouseX = ref(0)
+  const mouseY = ref(0)
+  const cursorGlow = ref({ x: 0, y: 0 })
+
+  const updateMouse = (e) => { mouseX.value = e.clientX; mouseY.value = e.clientY; cursorGlow.value = { x: e.clientX, y: e.clientY } }
+
+  // ==================== 动作 ====================
+  const setInnerWidth = (value) => { innerWidth.value = value }
+  const setImgLoadStatus = (value) => { imgLoadStatus.value = value }
+
+  return {
+    config, setConfig,
+    imgLoadStatus, innerWidth, setInnerWidth, setImgLoadStatus,
+    siteStartDate, siteStartShow, siteDays,
+    themeMode, isNight, language, setLanguage,
+    themes, activeTheme, currentTheme, setTheme,
+    setOpenState, activeMenu,
+    coverType, currentBg, currentBgIndex, nextBg, prevBg, initWallpapers, refreshRandomBg,
+    musicOpenState, musicClick, musicVolume, playerAutoplay, playerLoop, playerOrder, playerState,
+    songs, currentSongIndex, toggleMusicPanel, setSongs,
+    visitor, fetchVisitor,
+    weather, weatherLoading, fetchWeather,
+    now, timeStr, dateStr, greeting,
+    dayProgress, weekProgress, monthProgress, yearProgress,
+    hitokoto, hitokotoLoading, fetchHitokoto,
+    pomoDuration, pomoTime, pomoRunning, pomoMode, pomoCompleted, pomoStats,
+    startPomo, stopPomo, resetPomo, setPomoDuration,
+    notesEnabled, notes, addNote, delNote,
+    links, addLink, delLink, replaceLinks,
+    socials, addSocial, delSocial, replaceSocials,
+    updateSiteConfig,
+    mouseX, mouseY, cursorGlow, updateMouse,
+    particlesEnabled, setParticlesEnabled,
+    customCursorEnabled, setCustomCursorEnabled
+  }
+})

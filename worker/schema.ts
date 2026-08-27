@@ -28,6 +28,23 @@ export type Profile = {
   footer: string;
 };
 
+export type HomeConfig = {
+  site: {
+    avatar: string;
+    startDate: string;
+    typewriterLines: string[];
+    countdownName: string;
+    countdownDate: string;
+  };
+  announcement: {
+    enabled: boolean;
+    text: string;
+    speed: number;
+    backgroundColor: string;
+    textColor: string;
+  };
+};
+
 function stringValue(value: unknown, field: string, maxLength: number, required = false): string {
   if (typeof value !== "string") throw new Error(`${field} 必须是文本`);
   const normalized = value.trim();
@@ -63,6 +80,35 @@ export function normalizeProfile(value: unknown): Profile {
     githubUrl: safeUrl(profile.githubUrl ?? "", "GitHub 链接"),
     email,
     footer: stringValue(profile.footer ?? "", "页脚文案", 100),
+  };
+}
+
+export function normalizeHome(value: unknown): HomeConfig {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("主页配置格式错误");
+  const root = value as Record<string, unknown>;
+  if (!root.site || typeof root.site !== "object" || Array.isArray(root.site)) throw new Error("主页信息格式错误");
+  if (!root.announcement || typeof root.announcement !== "object" || Array.isArray(root.announcement)) throw new Error("公告配置格式错误");
+  const site = root.site as Record<string, unknown>;
+  const announcement = root.announcement as Record<string, unknown>;
+  const typewriterLines = Array.isArray(site.typewriterLines) ? site.typewriterLines : [];
+  if (!typewriterLines.length || typewriterLines.length > 8) throw new Error("打字机标语需保留 1 至 8 行");
+  const speed = Number(announcement.speed);
+  if (!Number.isFinite(speed) || speed < 10 || speed > 200) throw new Error("公告速度需在 10 至 200 之间");
+  return {
+    site: {
+      avatar: stringValue(site.avatar, "头像", 300, true),
+      startDate: stringValue(site.startDate, "建站日期", 10, true),
+      typewriterLines: typewriterLines.map((line, index) => stringValue(line, `第 ${index + 1} 行标语`, 100, true)),
+      countdownName: stringValue(site.countdownName, "倒计时名称", 40, true),
+      countdownDate: stringValue(site.countdownDate, "倒计时日期", 10, true),
+    },
+    announcement: {
+      enabled: announcement.enabled !== false,
+      text: stringValue(announcement.text, "公告内容", 240, true),
+      speed: Math.round(speed),
+      backgroundColor: stringValue(announcement.backgroundColor, "公告背景色", 80, true),
+      textColor: stringValue(announcement.textColor, "公告文字色", 40, true),
+    },
   };
 }
 
