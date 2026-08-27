@@ -123,12 +123,16 @@
         <span class="social-name">{{ s.name }}</span>
       </a>
     </div>
+
+    <!-- 作品（左栏底部） -->
+    <LinksWidget />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { mainStore } from '../store'
+import LinksWidget from '../components/widgets/LinksWidget.vue'
 
 const store = mainStore()
 const showSettings = ref(false)

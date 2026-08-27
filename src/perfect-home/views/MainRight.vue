@@ -22,8 +22,6 @@
       <GithubContribWidget />
     </div>
 
-    <!-- 项目链接（独占一行） -->
-    <LinksWidget />
   </div>
 </template>
 
@@ -38,7 +36,6 @@ import WoodenFishWidget from '../components/widgets/WoodenFishWidget.vue'
 import TodoWidget from '../components/widgets/TodoWidget.vue'
 import QuickNotesWidget from '../components/widgets/QuickNotesWidget.vue'
 import PomodoroWidget from '../components/widgets/PomodoroWidget.vue'
-import LinksWidget from '../components/widgets/LinksWidget.vue'
 import GithubContribWidget from '../components/widgets/GithubContribWidget.vue'
 
 const store = mainStore()
