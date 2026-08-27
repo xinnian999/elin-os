@@ -7,7 +7,7 @@
     <div class="visitor-content" v-if="visitorData">
       <div class="visitor-item">
         <span class="label">📍 位置</span>
-        <span class="value">{{ visitorData.city }}, {{ visitorData.country_name }}</span>
+        <span class="value">{{ locationText }}</span>
       </div>
       <div class="visitor-item">
         <span class="label">🌐 IP</span>
@@ -39,14 +39,19 @@ import { mainStore } from '../../store'
 const store = mainStore()
 const visitorData = computed(() => store.visitor)
 const showIp = ref(false)
+const locationText = computed(() => [visitorData.value?.city, visitorData.value?.country_name].filter(Boolean).join(', '))
 
 const maskedIp = computed(() => {
-  if (!visitorData.value?.ip) return '***.***.***'
+  if (!visitorData.value?.ip || visitorData.value.ip === '无法获取') return '无法获取'
   const parts = visitorData.value.ip.split('.')
   if (parts.length === 4) {
     return `${parts[0]}.***.***.${parts[3]}`
   }
-  return '***.***.***'
+  if (visitorData.value.ip.includes(':')) {
+    const segments = visitorData.value.ip.split(':').filter(Boolean)
+    return segments.length > 1 ? `${segments[0]}:${segments[1]}:…` : 'IPv6（已隐藏）'
+  }
+  return 'IP（已隐藏）'
 })
 
 </script>

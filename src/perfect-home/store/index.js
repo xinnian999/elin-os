@@ -215,7 +215,24 @@ export const mainStore = defineStore('main', () => {
   // ==================== 访客信息 ====================
   const visitor = ref(null)
   const fetchVisitor = async () => {
-    visitor.value = { city: '上海', country_name: '中国', ip: '隐私保护', isp: '欢迎访问 Elin OS', region: '上海' }
+    try {
+      const response = await fetch('/api/visitor', { cache: 'no-store' })
+      if (!response.ok) throw new Error('访客信息不可用')
+      const data = await response.json()
+      let countryName = data.country || '未知国家/地区'
+      try {
+        countryName = new Intl.DisplayNames(['zh-CN'], { type: 'region' }).of(data.country) || countryName
+      } catch { /* 浏览器不支持 Intl.DisplayNames 时使用国家代码 */ }
+      visitor.value = {
+        ...data,
+        city: data.city || data.region || '未知位置',
+        country_name: countryName,
+        ip: data.ip || '无法获取',
+        timezone: data.timezone || '未知时区'
+      }
+    } catch {
+      visitor.value = { city: '无法定位', country_name: '', ip: '无法获取', isp: '', timezone: '未知时区' }
+    }
   }
 
   // ==================== 天气 ====================
@@ -224,56 +241,15 @@ export const mainStore = defineStore('main', () => {
 
   const fetchWeather = async () => {
     weatherLoading.value = true
-
-    weather.value = { temp: '--', humidity: '--', wind: '--', icon: '🌤️', text: '隐私模式', city: '上海' }
-    weatherLoading.value = false
-  }
-
-  const getWeatherIcon = (code) => {
-    // nxvav.cn 天气 code 映射（和风天气码）
-    const map = {
-      // 晴
-      '0': '☀️', '1': '🌤️', '2': '⛅', '3': '☁️',
-      // 雾/沙尘
-      '4': '🌫️', '5': '🌫️', '6': '🌫️', '7': '🌫️', '8': '🌫️', '9': '🌫️',
-      // 风
-      '10': '💨', '11': '🌫️', '12': '🌫️', '13': '🌫️', '14': '🌫️', '15': '🌫️', '16': '🌫️', '17': '🌫️', '18': '💨',
-      // 雨
-      '19': '🌧️', '20': '🌧️', '21': '🌧️', '22': '🌨️', '23': '🌨️', '24': '🌨️', '25': '🌨️',
-      // 阵雨
-      '26': '🌧️', '27': '🌧️', '28': '🌧️', '29': '⛈️',
-      // 雷阵雨/冰雹
-      '30': '⛈️', '31': '⛈️', '32': '⛈️', '33': '⛈️', '34': '⛈️',
-      // 雨夹雪
-      '35': '🌨️', '36': '🌨️',
-      // 阵雨/雷阵雨
-      '37': '🌧️', '38': '🌧️', '39': '🌧️',
-      // 雪
-      '40': '🌨️', '41': '❄️', '42': '🌨️', '43': '❄️', '44': '🌨️', '45': '🌫️', '46': '🌫️', '47': '🌫️', '48': '🌫️',
-      // 大雪/暴雪
-      '49': '❄️', '50': '🌨️', '51': '🌨️', '52': '🌨️',
-      // 冻雨
-      53: '🌨️', 54: '🌨️',
-      // 雨/雪
-      55: '🌧️', 56: '🌨️', 57: '🌧️', 58: '🌨️',
-      // 阵雨/雷阵雨
-      59: '🌧️', 60: '🌧️', 61: '🌧️', 62: '🌧️', 63: '🌧️', 64: '🌧️', 65: '🌧️', 66: '🌧️', 67: '🌧️',
-      // 雪
-      68: '🌨️', 69: '🌨️', 70: '🌨️', 71: '❄️', 72: '❄️', 73: '❄️', 74: '❄️', 75: '❄️', 76: '❄️', 77: '🌨️',
-      // 阵雪
-      78: '🌨️', 79: '🌨️',
-      // 阵雨
-      80: '🌧️', 81: '🌧️', 82: '🌧️',
-      // 雷阵雨
-      83: '⛈️', 84: '⛈️', 85: '🌨️', 86: '🌨️',
-      // 冰雹
-      87: '🧊', 88: '🧊',
-      // 雨/雪
-      89: '🌨️', 90: '🌨️',
-      // 雷阵雨/冰雹
-      91: '⛈️', 92: '⛈️', 93: '🌨️', 94: '🌨️', 95: '⛈️', 96: '⛈️', 99: '⛈️'
+    try {
+      const response = await fetch('/api/weather', { cache: 'no-store' })
+      if (!response.ok) throw new Error('天气信息不可用')
+      weather.value = await response.json()
+    } catch {
+      weather.value = null
+    } finally {
+      weatherLoading.value = false
     }
-    return map[code] !== undefined ? map[code] : '🌤️'
   }
 
   // ==================== 时间 ====================

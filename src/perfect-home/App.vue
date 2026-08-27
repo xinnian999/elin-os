@@ -104,9 +104,8 @@ onMounted(async () => {
 
   store.setInnerWidth(window.innerWidth)
   window.addEventListener('resize', () => store.setInnerWidth(window.innerWidth))
-  // 先获取访客信息（含城市），再用城市获取天气，避免重复请求 IP API
-  await store.fetchVisitor()
-  store.fetchWeather()
+  // 两项数据均由同源 Worker 基于当前 Cloudflare 请求位置获取
+  await Promise.allSettled([store.fetchVisitor(), store.fetchWeather()])
   store.fetchHitokoto()
 })
 

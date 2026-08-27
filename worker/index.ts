@@ -12,6 +12,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_LOGIN_BYTES = 1024;
 const SESSION_COOKIE = "elin_admin_session";
 const SESSION_SECONDS = 30 * 24 * 60 * 60;
+const LOCATION_CACHE_HEADERS = { "Cache-Control": "private, no-store, max-age=0" };
 const IMAGE_TYPES: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
@@ -39,6 +40,104 @@ function json(data: unknown, init: ResponseInit = {}): Response {
   headers.set("Content-Type", "application/json; charset=utf-8");
   headers.set("X-Content-Type-Options", "nosniff");
   return Response.json(data, { ...init, headers });
+}
+
+function requestLocation(request: Request): IncomingRequestCfProperties | undefined {
+  return request.cf as IncomingRequestCfProperties | undefined;
+}
+
+function publicVisitor(request: Request): Response {
+  const location = requestLocation(request);
+  const forwardedIp = request.headers.get("CF-Connecting-IP") || "";
+  return json({
+    ip: forwardedIp,
+    city: location?.city || "",
+    region: location?.region || "",
+    regionCode: location?.regionCode || "",
+    country: location?.country || "",
+    timezone: location?.timezone || "",
+    isp: location?.asOrganization || "",
+    asn: location?.asn || null,
+    locationAvailable: Boolean(location?.latitude && location?.longitude),
+  }, { headers: LOCATION_CACHE_HEADERS });
+}
+
+type OpenMeteoCurrent = {
+  time?: string;
+  temperature_2m?: number;
+  relative_humidity_2m?: number;
+  apparent_temperature?: number;
+  weather_code?: number;
+  wind_speed_10m?: number;
+  is_day?: number;
+};
+
+type OpenMeteoResponse = {
+  current?: OpenMeteoCurrent;
+  timezone?: string;
+};
+
+function weatherDescription(code: number, isDay: boolean): { icon: string; text: string } {
+  if (code === 0) return { icon: isDay ? "☀️" : "🌙", text: "晴" };
+  if (code === 1) return { icon: isDay ? "🌤️" : "🌙", text: "大致晴朗" };
+  if (code === 2) return { icon: "⛅", text: "多云" };
+  if (code === 3) return { icon: "☁️", text: "阴" };
+  if ([45, 48].includes(code)) return { icon: "🌫️", text: "雾" };
+  if ([51, 53, 55, 56, 57].includes(code)) return { icon: "🌦️", text: "毛毛雨" };
+  if ([61, 63, 65, 66, 67].includes(code)) return { icon: "🌧️", text: "雨" };
+  if ([71, 73, 75, 77, 85, 86].includes(code)) return { icon: "🌨️", text: "雪" };
+  if ([80, 81, 82].includes(code)) return { icon: "🌦️", text: "阵雨" };
+  if ([95, 96, 99].includes(code)) return { icon: "⛈️", text: "雷暴" };
+  return { icon: "🌤️", text: "天气实况" };
+}
+
+async function publicWeather(request: Request): Promise<Response> {
+  const location = requestLocation(request);
+  const latitude = Number(location?.latitude);
+  const longitude = Number(location?.longitude);
+  if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90
+    || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+    return json({ error: "暂时无法识别当前位置" }, { status: 503, headers: LOCATION_CACHE_HEADERS });
+  }
+
+  const query = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude),
+    current: "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,is_day",
+    timezone: "auto",
+    forecast_days: "1",
+  });
+
+  try {
+    const response = await fetch(`https://api.open-meteo.com/v1/forecast?${query}`, {
+      headers: { Accept: "application/json", "User-Agent": "elin-os-portfolio" },
+      signal: AbortSignal.timeout(4_000),
+    });
+    if (!response.ok) {
+      console.warn(JSON.stringify({ message: "weather service unavailable", status: response.status }));
+      return json({ error: "天气服务暂时不可用" }, { status: 502, headers: LOCATION_CACHE_HEADERS });
+    }
+    const data = await response.json<OpenMeteoResponse>();
+    const current = data.current;
+    if (!current || !Number.isFinite(current.temperature_2m) || !Number.isFinite(current.weather_code)) {
+      return json({ error: "天气数据暂时不可用" }, { status: 502, headers: LOCATION_CACHE_HEADERS });
+    }
+    const condition = weatherDescription(current.weather_code as number, current.is_day !== 0);
+    return json({
+      temp: Math.round(current.temperature_2m as number),
+      feelsLike: Number.isFinite(current.apparent_temperature) ? Math.round(current.apparent_temperature as number) : null,
+      humidity: Number.isFinite(current.relative_humidity_2m) ? Math.round(current.relative_humidity_2m as number) : null,
+      wind: Number.isFinite(current.wind_speed_10m) ? Math.round(current.wind_speed_10m as number) : null,
+      icon: condition.icon,
+      text: condition.text,
+      city: location?.city || location?.region || "当前位置",
+      observedAt: current.time || null,
+      timezone: data.timezone || location?.timezone || "",
+    }, { headers: LOCATION_CACHE_HEADERS });
+  } catch (error) {
+    console.warn(JSON.stringify({ message: "weather request failed", error: error instanceof Error ? error.message : String(error) }));
+    return json({ error: "天气服务暂时不可用" }, { status: 502, headers: LOCATION_CACHE_HEADERS });
+  }
 }
 
 async function verifyToken(provided: string, expected: string): Promise<boolean> {
@@ -293,6 +392,8 @@ export default {
       if (request.method === "GET" && url.pathname === "/api/works") return publicWorks(env);
       if (request.method === "GET" && url.pathname === "/api/profile") return publicProfile(env);
       if (request.method === "GET" && url.pathname === "/api/home") return publicHome(env);
+      if (request.method === "GET" && url.pathname === "/api/visitor") return publicVisitor(request);
+      if (request.method === "GET" && url.pathname === "/api/weather") return publicWeather(request);
       if (request.method === "GET" && url.pathname.startsWith("/media/")) return serveMedia(request, env, url.pathname);
 
       if (url.pathname.startsWith("/api/admin/")) {
