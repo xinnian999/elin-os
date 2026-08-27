@@ -26,7 +26,6 @@ export const messages = {
     countdown: '倒计时',
     github: 'GitHub',
     todo: '待办',
-    worldClock: '世界时钟',
     quickNotes: '快捷便签',
     announcement: '公告',
 
@@ -96,7 +95,6 @@ export const messages = {
     countdown: 'Countdown',
     github: 'GitHub',
     todo: 'Todo',
-    worldClock: 'World Clock',
     quickNotes: 'Quick Notes',
     announcement: 'Announcement',
 

@@ -230,13 +230,6 @@ body {
     padding: 12px !important;
   }
 
-  /* 世界时钟移动端2列 */
-  .clock-list {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-  }
-
   /* 待办清单最大高度缩小 */
   .todo-list {
     max-height: 120px !important;

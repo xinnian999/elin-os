@@ -5,7 +5,7 @@
       <ClockWidget />
       <WeatherWidget />
       <VisitorWidget />
-      <WorldClockWidget />
+      <WoodenFishWidget />
       <HitokotoWidget />
       <CountdownWidget />
     </div>
@@ -34,7 +34,7 @@ import WeatherWidget from '../components/widgets/WeatherWidget.vue'
 import VisitorWidget from '../components/widgets/VisitorWidget.vue'
 import HitokotoWidget from '../components/widgets/HitokotoWidget.vue'
 import CountdownWidget from '../components/widgets/CountdownWidget.vue'
-import WorldClockWidget from '../components/widgets/WorldClockWidget.vue'
+import WoodenFishWidget from '../components/widgets/WoodenFishWidget.vue'
 import TodoWidget from '../components/widgets/TodoWidget.vue'
 import QuickNotesWidget from '../components/widgets/QuickNotesWidget.vue'
 import PomodoroWidget from '../components/widgets/PomodoroWidget.vue'
