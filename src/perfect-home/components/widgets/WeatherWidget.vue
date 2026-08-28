@@ -59,8 +59,10 @@ const isNight = computed(() => {
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
-  padding: 16px;
+  padding: 14px;
   min-height: 140px;
+  display: flex;
+  flex-direction: column;
   cursor: pointer;
   transition: all 0.3s ease;
 
@@ -75,7 +77,8 @@ const isNight = computed(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  flex: 0 0 auto;
 }
 
 .widget-icon {
@@ -116,19 +119,25 @@ const isNight = computed(() => {
 }
 
 .weather-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 7px;
 }
 
 .weather-main {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .weather-icon {
-  font-size: 48px;
+  width: 46px;
+  flex: 0 0 46px;
+  font-size: 42px;
+  line-height: 1;
+  text-align: center;
   transition: transform 0.3s ease;
 
   &.icon-animate {
@@ -151,14 +160,14 @@ const isNight = computed(() => {
 }
 
 .temp-value {
-  font-size: 2.5rem;
+  font-size: 2.25rem;
   font-weight: 700;
   color: #fff;
   line-height: 1;
 }
 
 .temp-unit {
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.6);
   margin-top: 4px;
 }
@@ -166,16 +175,22 @@ const isNight = computed(() => {
 .weather-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  min-width: 0;
+  gap: 10px;
 }
 
 .weather-text {
-  font-size: 0.95rem;
+  flex: 0 0 auto;
+  font-size: 0.82rem;
   color: rgba(255, 255, 255, 0.9);
   font-weight: 500;
 }
 
 .weather-city {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.5);
 
@@ -186,8 +201,10 @@ const isNight = computed(() => {
 
 .weather-details {
   display: flex;
-  gap: 16px;
-  padding-top: 8px;
+  align-items: center;
+  gap: 22px;
+  margin-top: auto;
+  padding-top: 7px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 

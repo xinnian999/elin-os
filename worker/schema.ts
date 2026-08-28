@@ -1,5 +1,33 @@
 export const MAX_PROJECTS = 24;
+export const MAX_CONTACTS = 16;
 const MAX_DETAILS = 6;
+
+const CONTACT_PRESETS = {
+  github: { name: "GitHub", type: "link", icon: "github", color: "#F0F6FC", aliases: ["github"] },
+  gitee: { name: "Gitee", type: "link", icon: "gitee", color: "#C71D23", aliases: ["gitee", "码云"] },
+  wechat: { name: "微信", type: "qrcode", icon: "wechat", color: "#07C160", aliases: ["微信", "wechat"] },
+  qq: { name: "QQ", type: "qrcode", icon: "qq", color: "#1EBAFC", aliases: ["qq"] },
+  xiaohongshu: { name: "小红书", type: "link", icon: "xiaohongshu", color: "#FF2442", aliases: ["小红书", "xiaohongshu", "rednote"] },
+  "wechat-official": { name: "公众号", type: "qrcode", icon: "wechat-official", color: "#07C160", aliases: ["公众号", "微信公众号", "official account"] },
+  bilibili: { name: "B站", type: "link", icon: "bilibili", color: "#00A1D6", aliases: ["b站", "哔哩哔哩", "bilibili"] },
+  zhihu: { name: "知乎", type: "link", icon: "zhihu", color: "#0084FF", aliases: ["知乎", "zhihu"] },
+  weibo: { name: "微博", type: "link", icon: "weibo", color: "#E6162D", aliases: ["微博", "weibo", "sina weibo"] },
+  douyin: { name: "抖音", type: "link", icon: "douyin", color: "#FE2C55", aliases: ["抖音", "douyin", "tiktok"] },
+  email: { name: "邮箱", type: "email", icon: "mail", color: "#00D4FF", aliases: ["邮箱", "email", "mail"] },
+  website: { name: "个人网站", type: "link", icon: "website", color: "#A46CFF", aliases: ["个人网站", "网站", "website"] },
+  phone: { name: "手机", type: "link", icon: "phone", color: "#34C759", aliases: ["手机", "电话", "phone", "mobile"] },
+} as const;
+
+type ContactPresetId = keyof typeof CONTACT_PRESETS;
+
+export type Contact = {
+  id: string;
+  name: string;
+  type: "link" | "qrcode" | "email";
+  value: string;
+  icon: string;
+  color: string;
+};
 
 type Project = {
   id: string;
@@ -26,6 +54,7 @@ export type Profile = {
   githubUrl: string;
   email: string;
   footer: string;
+  contacts: Contact[];
 };
 
 export type HomeConfig = {
@@ -67,6 +96,83 @@ function safeUrl(value: unknown, field: string, allowLocal = false): string {
   return parsed.toString();
 }
 
+function contactValue(value: unknown, type: Contact["type"], field: string): string {
+  if (type === "qrcode") return safeUrl(value, field, true);
+  const normalized = stringValue(value, field, 500, true);
+  if (type === "email") {
+    const email = normalized.replace(/^mailto:/i, "");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error(`${field} 不是有效邮箱地址`);
+    return email;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new Error(`${field} 不是有效链接`);
+  }
+  if (!new Set(["https:", "tel:"]).has(parsed.protocol)) {
+    throw new Error(`${field} 仅支持 HTTPS 或电话链接`);
+  }
+  return parsed.toString();
+}
+
+function phoneValue(value: unknown, field: string): string {
+  const normalized = stringValue(value, field, 40, true).replace(/^tel:/i, "");
+  const compact = normalized.replace(/[\s()-]/g, "");
+  if (!/^\+?\d{6,20}$/.test(compact)) throw new Error(`${field} 不是有效电话号码`);
+  return `tel:${compact}`;
+}
+
+function fallbackContacts(profile: Record<string, unknown>): Contact[] {
+  const githubUrl = typeof profile.githubUrl === "string" ? profile.githubUrl.trim() : "";
+  const email = typeof profile.email === "string" ? profile.email.trim() : "";
+  const contacts: Contact[] = [];
+  if (githubUrl) contacts.push({ id: "github", name: "GitHub", type: "link", value: githubUrl, icon: "github", color: "#F0F6FC" });
+  if (email) contacts.push({ id: "email", name: "邮箱", type: "email", value: email, icon: "mail", color: "#00D4FF" });
+  return contacts;
+}
+
+function findContactPreset(contact: Record<string, unknown>): [ContactPresetId, (typeof CONTACT_PRESETS)[ContactPresetId]] | null {
+  const id = typeof contact.id === "string" ? contact.id.trim().toLowerCase() : "";
+  if (id in CONTACT_PRESETS) {
+    const presetId = id as ContactPresetId;
+    return [presetId, CONTACT_PRESETS[presetId]];
+  }
+  const name = typeof contact.name === "string" ? contact.name.trim().toLowerCase() : "";
+  const entry = Object.entries(CONTACT_PRESETS).find(([, preset]) => preset.aliases.some((alias) => alias.toLowerCase() === name));
+  return entry ? entry as [ContactPresetId, (typeof CONTACT_PRESETS)[ContactPresetId]] : null;
+}
+
+function normalizeContacts(value: unknown, profile: Record<string, unknown>): Contact[] {
+  if (value === undefined) return fallbackContacts(profile);
+  if (!Array.isArray(value)) throw new Error("联系方式必须是数组");
+  if (value.length > MAX_CONTACTS) throw new Error(`联系方式不能超过 ${MAX_CONTACTS} 个`);
+
+  const contacts: Contact[] = [];
+  const seen = new Set<ContactPresetId>();
+  value.forEach((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error(`第 ${index + 1} 个联系方式格式错误`);
+    const contact = item as Record<string, unknown>;
+    const matched = findContactPreset(contact);
+    if (!matched || seen.has(matched[0])) return;
+    const [id, preset] = matched;
+    const type = preset.type as Contact["type"];
+    seen.add(id);
+    contacts.push({
+      id,
+      name: preset.name,
+      type,
+      value: id === "phone"
+        ? phoneValue(contact.value, `${preset.name}的内容`)
+        : contactValue(contact.value, type, `${preset.name}的内容`),
+      icon: preset.icon,
+      color: preset.color,
+    });
+  });
+  return contacts;
+}
+
 export function normalizeProfile(value: unknown): Profile {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("简介配置格式错误");
   const profile = value as Record<string, unknown>;
@@ -80,6 +186,7 @@ export function normalizeProfile(value: unknown): Profile {
     githubUrl: safeUrl(profile.githubUrl ?? "", "GitHub 链接"),
     email,
     footer: stringValue(profile.footer ?? "", "页脚文案", 100),
+    contacts: normalizeContacts(profile.contacts, profile),
   };
 }
 

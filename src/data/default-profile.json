@@ -5,5 +5,23 @@
   "location": "上海 · 可远程",
   "githubUrl": "https://github.com/xinnian999",
   "email": "hello@example.com",
-  "footer": "以好奇心与长期主义构建"
+  "footer": "以好奇心与长期主义构建",
+  "contacts": [
+    {
+      "id": "github",
+      "name": "GitHub",
+      "type": "link",
+      "value": "https://github.com/xinnian999",
+      "icon": "github",
+      "color": "#F0F6FC"
+    },
+    {
+      "id": "email",
+      "name": "邮箱",
+      "type": "email",
+      "value": "hello@example.com",
+      "icon": "mail",
+      "color": "#00D4FF"
+    }
+  ]
 }

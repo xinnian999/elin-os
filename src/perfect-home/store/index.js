@@ -159,6 +159,12 @@ export const mainStore = defineStore('main', () => {
     return list[currentBgIndex.value % list.length]
   })
 
+  const nextBgUrl = computed(() => {
+    const list = currentBgList.value
+    if (!list.length) return defaultBgImages.value[0]
+    return list[(currentBgIndex.value + 1) % list.length]
+  })
+
   const nextBg = () => { currentBgIndex.value = (currentBgIndex.value + 1) % currentBgList.value.length }
   const prevBg = () => { currentBgIndex.value = (currentBgIndex.value - 1 + currentBgList.value.length) % currentBgList.value.length }
 
@@ -399,7 +405,7 @@ export const mainStore = defineStore('main', () => {
     themeMode, isNight, language, setLanguage,
     themes, activeTheme, currentTheme, setTheme,
     setOpenState, activeMenu,
-    coverType, currentBg, currentBgIndex, nextBg, prevBg, initWallpapers, refreshRandomBg,
+    coverType, currentBg, nextBgUrl, currentBgIndex, nextBg, prevBg, initWallpapers, refreshRandomBg,
     musicOpenState, musicClick, musicVolume, playerAutoplay, playerLoop, playerOrder, playerState,
     songs, currentSongIndex, toggleMusicPanel, setSongs,
     visitor, fetchVisitor,

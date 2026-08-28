@@ -248,8 +248,10 @@ function logout(request: Request): Response {
   });
 }
 
-async function readConfig(env: Env): Promise<WorksConfig> {
-  const stored = await env.WORKS.get<WorksConfig>(WORKS_KEY, { type: "json", cacheTtl: 30 });
+async function readConfig(env: Env, fresh = false): Promise<WorksConfig> {
+  const stored = fresh
+    ? await env.WORKS.get<WorksConfig>(WORKS_KEY, { type: "json" })
+    : await env.WORKS.get<WorksConfig>(WORKS_KEY, { type: "json", cacheTtl: 30 });
   if (!stored) return { projects: normalizeProjects(defaultConfig.projects), updatedAt: null };
   try {
     return { projects: normalizeProjects(stored.projects), updatedAt: stored.updatedAt || null };
@@ -259,8 +261,10 @@ async function readConfig(env: Env): Promise<WorksConfig> {
   }
 }
 
-async function readProfile(env: Env): Promise<ProfileConfig> {
-  const stored = await env.WORKS.get<ProfileConfig>(PROFILE_KEY, { type: "json", cacheTtl: 30 });
+async function readProfile(env: Env, fresh = false): Promise<ProfileConfig> {
+  const stored = fresh
+    ? await env.WORKS.get<ProfileConfig>(PROFILE_KEY, { type: "json" })
+    : await env.WORKS.get<ProfileConfig>(PROFILE_KEY, { type: "json", cacheTtl: 30 });
   if (!stored) return { profile: normalizeProfile(defaultProfile), updatedAt: null };
   try {
     return { profile: normalizeProfile(stored.profile), updatedAt: stored.updatedAt || null };
@@ -270,8 +274,10 @@ async function readProfile(env: Env): Promise<ProfileConfig> {
   }
 }
 
-async function readHome(env: Env): Promise<HomeConfig> {
-  const stored = await env.WORKS.get<HomeConfig>(HOME_KEY, { type: "json", cacheTtl: 30 });
+async function readHome(env: Env, fresh = false): Promise<HomeConfig> {
+  const stored = fresh
+    ? await env.WORKS.get<HomeConfig>(HOME_KEY, { type: "json" })
+    : await env.WORKS.get<HomeConfig>(HOME_KEY, { type: "json", cacheTtl: 30 });
   if (!stored) return { home: normalizeHome(defaultHome), updatedAt: null };
   try {
     return { home: normalizeHome(stored.home), updatedAt: stored.updatedAt || null };
@@ -431,22 +437,30 @@ async function publicGithubContributions(env: Env): Promise<Response> {
   }
 }
 
-async function publicWorks(env: Env): Promise<Response> {
-  const config = await readConfig(env);
+async function publicWorks(request: Request, env: Env): Promise<Response> {
+  const local = isLocalRequest(request);
+  const config = await readConfig(env, local);
   const projects = await Promise.all(config.projects.map(async (project) => {
     const repository = parseGithubRepository(project.githubUrl);
     if (!repository) return project;
     return { ...project, stars: await githubStars(env, repository, project.stars) };
   }));
-  return json({ ...config, projects }, { headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=120" } });
+  return json({ ...config, projects }, { headers: { "Cache-Control": local ? "no-store" : "public, max-age=30, stale-while-revalidate=120" } });
 }
 
-async function publicProfile(env: Env): Promise<Response> {
-  return json(await readProfile(env), { headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=120" } });
+async function publicProfile(request: Request, env: Env): Promise<Response> {
+  const local = isLocalRequest(request);
+  return json(await readProfile(env, local), { headers: { "Cache-Control": local ? "no-store" : "public, max-age=30, stale-while-revalidate=120" } });
 }
 
-async function publicHome(env: Env): Promise<Response> {
-  return json(await readHome(env), { headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=120" } });
+async function publicHome(request: Request, env: Env): Promise<Response> {
+  const local = isLocalRequest(request);
+  return json(await readHome(env, local), { headers: { "Cache-Control": local ? "no-store" : "public, max-age=30, stale-while-revalidate=120" } });
+}
+
+function isLocalRequest(request: Request): boolean {
+  const hostname = new URL(request.url).hostname;
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]";
 }
 
 async function saveWorks(request: Request, env: Env): Promise<Response> {
@@ -455,7 +469,12 @@ async function saveWorks(request: Request, env: Env): Promise<Response> {
   if (contentLength > MAX_CONFIG_BYTES) return json({ error: "作品配置过大" }, { status: 413 });
   const body = await request.json<unknown>();
   if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "请求格式错误" }, { status: 400 });
-  const projects = normalizeProjects((body as { projects?: unknown }).projects);
+  let projects;
+  try {
+    projects = normalizeProjects((body as { projects?: unknown }).projects);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : "作品配置格式错误" }, { status: 400 });
+  }
   const config: WorksConfig = { projects, updatedAt: new Date().toISOString() };
   await env.WORKS.put(WORKS_KEY, JSON.stringify(config));
   return json(config);
@@ -467,7 +486,12 @@ async function saveProfile(request: Request, env: Env): Promise<Response> {
   if (contentLength > MAX_CONFIG_BYTES) return json({ error: "简介配置过大" }, { status: 413 });
   const body = await request.json<unknown>();
   if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "请求格式错误" }, { status: 400 });
-  const profile = normalizeProfile((body as { profile?: unknown }).profile);
+  let profile;
+  try {
+    profile = normalizeProfile((body as { profile?: unknown }).profile);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : "简介配置格式错误" }, { status: 400 });
+  }
   const config: ProfileConfig = { profile, updatedAt: new Date().toISOString() };
   await env.WORKS.put(PROFILE_KEY, JSON.stringify(config));
   return json(config);
@@ -479,7 +503,12 @@ async function saveHome(request: Request, env: Env): Promise<Response> {
   if (contentLength > MAX_CONFIG_BYTES) return json({ error: "主页配置过大" }, { status: 413 });
   const body = await request.json<unknown>();
   if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "请求格式错误" }, { status: 400 });
-  const home = normalizeHome((body as { home?: unknown }).home);
+  let home;
+  try {
+    home = normalizeHome((body as { home?: unknown }).home);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : "主页配置格式错误" }, { status: 400 });
+  }
   const config: HomeConfig = { home, updatedAt: new Date().toISOString() };
   await env.WORKS.put(HOME_KEY, JSON.stringify(config));
   return json(config);
@@ -525,9 +554,9 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     try {
-      if (request.method === "GET" && url.pathname === "/api/works") return publicWorks(env);
-      if (request.method === "GET" && url.pathname === "/api/profile") return publicProfile(env);
-      if (request.method === "GET" && url.pathname === "/api/home") return publicHome(env);
+      if (request.method === "GET" && url.pathname === "/api/works") return publicWorks(request, env);
+      if (request.method === "GET" && url.pathname === "/api/profile") return publicProfile(request, env);
+      if (request.method === "GET" && url.pathname === "/api/home") return publicHome(request, env);
       if (request.method === "GET" && url.pathname === "/api/visitor") return publicVisitor(request);
       if (request.method === "GET" && url.pathname === "/api/weather") return publicWeather(request);
       if (request.method === "GET" && url.pathname === "/api/github-contributions") return publicGithubContributions(env);

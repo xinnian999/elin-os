@@ -108,34 +108,56 @@
     </div>
 
     <!-- 社交链接 -->
-    <div class="social-grid">
-      <a v-for="s in store.socials" :key="s.id" :href="s.url" target="_blank" class="social-card" :style="{'--c': s.color}">
-        <svg v-if="s.icon === 'github'" class="social-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.87c-2.78.6-3.37-1.18-3.37-1.18-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.6 9.6 0 0 1 12 6.82a9.6 9.6 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.86V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z" />
-        </svg>
-        <svg v-else-if="s.icon === 'mail'" class="social-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4.5 6.5h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" />
-          <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m3.2 7.4 7.35 5.65a2.35 2.35 0 0 0 2.9 0L20.8 7.4" />
-        </svg>
-        <svg v-else class="social-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.5 14.5 14.5 9m-7.8 8.3-1 1a3.25 3.25 0 0 1-4.6-4.6l3.1-3.1a3.25 3.25 0 0 1 4.6 0m6.4 2.8a3.25 3.25 0 0 0 4.6 0l3.1-3.1a3.25 3.25 0 0 0-4.6-4.6l-1 1a3.25 3.25 0 0 0 0 4.6" />
-        </svg>
+    <div v-if="store.socials.length" class="social-grid">
+      <component
+        :is="s.type === 'qrcode' ? 'button' : 'a'"
+        v-for="s in store.socials"
+        :key="s.id"
+        v-bind="contactAttrs(s)"
+        class="social-card"
+        :style="{'--c': s.color}"
+        @click="s.type === 'qrcode' && openQrCode(s)"
+      >
+        <BrandIcon :name="s.icon" class="social-icon" />
         <span class="social-name">{{ s.name }}</span>
-      </a>
+      </component>
     </div>
 
-    <!-- 作品（左栏底部） -->
-    <LinksWidget />
+    <Teleport to="body">
+      <div v-if="qrContact" class="qr-overlay" @click.self="closeQrCode">
+        <section class="qr-dialog" role="dialog" aria-modal="true" :aria-label="`${qrContact.name}二维码`">
+          <button class="qr-close" type="button" aria-label="关闭二维码" @click="closeQrCode">✕</button>
+          <span class="qr-eyebrow">扫码联系</span>
+          <h2>{{ qrContact.name }}</h2>
+          <div class="qr-canvas">
+            <img v-if="!qrImageFailed" :src="qrContact.value" :alt="`${qrContact.name}二维码`" @error="qrImageFailed = true" />
+            <span v-else>二维码图片加载失败</span>
+          </div>
+          <p>请使用对应应用扫码</p>
+        </section>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { mainStore } from '../store'
-import LinksWidget from '../components/widgets/LinksWidget.vue'
+import BrandIcon from '../components/BrandIcon.vue'
 
 const store = mainStore()
 const showSettings = ref(false)
+const qrContact = ref(null)
+const qrImageFailed = ref(false)
+
+const contactAttrs = (contact) => contact.type === 'qrcode'
+  ? { type: 'button', 'aria-label': `显示${contact.name}二维码` }
+  : { href: contact.url, target: '_blank', rel: 'noreferrer' }
+const openQrCode = (contact) => {
+  qrContact.value = contact
+  qrImageFailed.value = false
+}
+const closeQrCode = () => { qrContact.value = null; qrImageFailed.value = false }
 
 // 响应式读取站点配置
 const siteConfig = computed(() => store.config?.site || {})
@@ -166,11 +188,17 @@ const avatarIsImage = computed(() => !!avatarUrl.value)
 <style lang="scss" scoped>
 .left {
   width: 50%;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
   gap: 14px;
 
-  @media (max-width: 900px) { width: 100%; }
+  @media (max-width: 900px) {
+    width: 100%;
+    height: auto;
+    justify-content: flex-start;
+  }
 }
 
 .profile-card {
@@ -360,6 +388,9 @@ const avatarIsImage = computed(() => !!avatarUrl.value)
   border-radius: 12px;
   color: #fff;
   text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+  position: relative;
   transition: all 0.3s ease;
 
   &:hover {
@@ -383,4 +414,10 @@ const avatarIsImage = computed(() => !!avatarUrl.value)
   filter: drop-shadow(0 0 10px var(--c));
 }
 .social-name { font-size: 0.6rem; color: rgba(255,255,255,0.7); text-align: center; }
+.social-glyph { display: grid; place-items: center; font-size: 13px; font-weight: 800; line-height: 1; }
+.qr-overlay { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.7); backdrop-filter: blur(12px); }
+.qr-dialog { position: relative; width: min(370px, 90vw); box-sizing: border-box; padding: 28px; text-align: center; color: #fff; background: rgba(12,18,31,.97); border: 1px solid color-mix(in srgb, var(--theme-primary) 42%, transparent); border-radius: 22px; box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 45px var(--theme-glow); }
+.qr-dialog h2 { margin: 6px 0 18px; font-size: 1.2rem; }.qr-eyebrow { color: var(--theme-primary); font-size: .72rem; letter-spacing: .18em; }.qr-canvas { aspect-ratio: 1; display: grid; place-items: center; padding: 12px; background: #fff; border-radius: 16px; overflow: hidden; }.qr-canvas img { width: 100%; height: 100%; display: block; }.qr-canvas span { color: #526074; font-size: .8rem; }.qr-dialog p { margin: 14px 0 0; overflow-wrap: anywhere; color: rgba(255,255,255,.55); font-size: .7rem; line-height: 1.6; }.qr-close { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; color: #fff; background: rgba(255,255,255,.06); cursor: pointer; }
+
+@media (max-width: 520px) { .social-grid { grid-template-columns: repeat(2, 1fr); } }
 </style>

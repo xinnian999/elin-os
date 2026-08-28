@@ -9,7 +9,7 @@
     <LoadingScreen />
 
     <!-- Background -->
-    <Background />
+    <Background :auto-switch-paused="showConfigEditor" />
 
     <!-- Main Content -->
     <main id="main" v-if="store.imgLoadStatus">
@@ -51,8 +51,8 @@
     <Footer />
 
     <!-- perfect-home 原生编辑入口，数据保存到 Cloudflare KV -->
-    <ConfigEditor v-if="showConfigEditor" @close="showConfigEditor = false" />
-    <button class="config-float-btn" @click="showConfigEditor = true" title="在线编辑">⚙️</button>
+    <ConfigEditor v-if="showConfigEditor && store.config" @close="showConfigEditor = false" />
+    <button v-if="store.config" class="config-float-btn" @click="showConfigEditor = true" title="在线编辑">⚙️</button>
   </div>
 </template>
 
@@ -125,31 +125,53 @@ watch(
 .app {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 #main {
   position: relative;
   width: 100%;
-  min-height: 100vh;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   transition: transform 0.3s;
   padding-top: 40px;
 }
 
 .container {
   width: 100%;
-  min-height: calc(100vh - 40px);
+  flex: 1;
+  min-height: 0;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 12px 20px 14px;
   display: flex;
+  align-items: stretch;
   gap: 20px;
 
   @media (max-width: 900px) {
     flex-direction: column;
+    flex: none;
     min-height: auto;
     padding-top: 80px;
     padding-bottom: 60px;
+  }
+}
+
+@media (max-width: 900px) {
+  .app {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+
+  #main {
+    min-height: 100vh;
+    display: block;
   }
 }
 

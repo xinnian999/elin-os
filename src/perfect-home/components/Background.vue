@@ -1,21 +1,125 @@
 <template>
   <div class="background">
-    <div class="bg-image" :style="{ backgroundImage: `url(${store.currentBg})` }"></div>
+    <img
+      v-for="(_, index) in backgroundLayers"
+      :key="index"
+      ref="backgroundImageElements"
+      class="bg-image"
+      :class="{ active: activeLayer === index }"
+      :src="backgroundLayers[index] || undefined"
+      alt=""
+      aria-hidden="true"
+    />
     <div class="bg-overlay"></div>
     <canvas ref="canvas" class="particles" v-show="store.particlesEnabled"></canvas>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { nextTick, ref, onMounted, onUnmounted, watch } from 'vue'
 import { mainStore } from '../store'
 
+const props = defineProps({
+  autoSwitchPaused: { type: Boolean, default: false }
+})
 const store = mainStore()
 const canvas = ref(null)
 let ctx = null
 let particles = []
 let animationId = null
 let bgSwitchTimer = null
+let backgroundRequestId = 0
+const backgroundLayers = ref(['', ''])
+const backgroundImageElements = ref([])
+const activeLayer = ref(0)
+const displayedBackground = ref('')
+const imageCache = new Map()
+
+const preloadBackground = (url) => {
+  if (!url) return Promise.reject(new Error('背景地址为空'))
+  if (imageCache.has(url)) return imageCache.get(url)
+
+  const request = new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = async () => {
+      try {
+        if (image.decode) await image.decode()
+      } catch {
+        // onload 已确认图片可用；部分浏览器可能不支持或拒绝重复 decode。
+      }
+      resolve(url)
+    }
+    image.onerror = () => reject(new Error(`背景加载失败: ${url}`))
+    image.src = url
+  })
+
+  imageCache.set(url, request)
+  request.catch(() => imageCache.delete(url))
+  return request
+}
+
+const preloadUpcomingBackground = () => {
+  const nextUrl = store.nextBgUrl
+  if (nextUrl && nextUrl !== displayedBackground.value) {
+    preloadBackground(nextUrl).catch(() => {})
+  }
+}
+
+const waitForLayerDecode = async (layerIndex) => {
+  await nextTick()
+  const image = backgroundImageElements.value[layerIndex]
+  if (!image) return
+
+  if (image.decode) {
+    try {
+      await image.decode()
+      return
+    } catch {
+      // 预加载已验证资源可用，继续兼容不稳定的 decode 实现。
+    }
+  }
+
+  if (!image.complete) {
+    await new Promise((resolve) => {
+      image.addEventListener('load', resolve, { once: true })
+      image.addEventListener('error', resolve, { once: true })
+    })
+  }
+}
+
+const displayBackground = async (url) => {
+  if (!url || url === displayedBackground.value) return
+  const requestId = ++backgroundRequestId
+
+  try {
+    await preloadBackground(url)
+    if (requestId !== backgroundRequestId) return
+
+    if (!displayedBackground.value) {
+      backgroundLayers.value[activeLayer.value] = url
+      await waitForLayerDecode(activeLayer.value)
+      if (requestId !== backgroundRequestId) return
+      displayedBackground.value = url
+      store.setImgLoadStatus(true)
+      preloadUpcomingBackground()
+      return
+    }
+
+    const nextLayer = activeLayer.value === 0 ? 1 : 0
+    backgroundLayers.value[nextLayer] = url
+    await waitForLayerDecode(nextLayer)
+    if (requestId !== backgroundRequestId) return
+    requestAnimationFrame(() => {
+      if (requestId !== backgroundRequestId) return
+      activeLayer.value = nextLayer
+      displayedBackground.value = url
+      preloadUpcomingBackground()
+    })
+  } catch (error) {
+    console.error(error)
+    if (!displayedBackground.value) store.setImgLoadStatus(true)
+  }
+}
 
 const initParticles = () => {
   const cvs = canvas.value
@@ -109,6 +213,11 @@ const animate = () => {
 
 // 自动切换背景
 const startAutoSwitch = () => {
+  if (bgSwitchTimer) {
+    clearInterval(bgSwitchTimer)
+    bgSwitchTimer = null
+  }
+  if (props.autoSwitchPaused) return
   // 每30秒自动切换一次背景
   bgSwitchTimer = setInterval(() => {
     store.nextBg()
@@ -121,12 +230,16 @@ onMounted(() => {
   }
   store.initWallpapers()
 
+  watch(() => store.currentBg, (url) => {
+    displayBackground(url)
+  }, { immediate: true })
+
+  watch(() => props.autoSwitchPaused, () => {
+    startAutoSwitch()
+  })
+
   // 启动自动切换
   startAutoSwitch()
-
-  setTimeout(() => {
-    store.setImgLoadStatus(true)
-  }, 1500)
 
   window.addEventListener('resize', () => {
     if (canvas.value) {
@@ -147,14 +260,24 @@ onUnmounted(() => {
   position: fixed;
   inset: 0;
   z-index: -1;
+  background: #050712;
 }
 
 .bg-image {
   position: absolute;
   inset: 0;
-  background-size: cover;
-  background-position: center;
-  transition: background-image 0.5s ease-in-out;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  opacity: 0;
+  transform: scale(1.002);
+  transition: opacity 0.8s ease-in-out;
+  will-change: opacity;
+}
+
+.bg-image.active {
+  opacity: 1;
 }
 
 .bg-overlay {

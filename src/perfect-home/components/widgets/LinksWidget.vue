@@ -1,5 +1,5 @@
 <template>
-  <div class="widget links-widget">
+  <div class="widget links-widget" :class="{ 'links-widget--desktop': desktop }">
     <div class="widget-header">
       <span class="widget-icon">🚀</span>
       <span class="widget-title">精选作品</span>
@@ -55,6 +55,8 @@
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { mainStore } from '../../store'
 
+defineProps({ desktop: { type: Boolean, default: false } })
+
 const store = mainStore()
 const selected = ref(null)
 const closeOnEscape = (event) => { if (event.key === 'Escape') selected.value = null }
@@ -94,7 +96,18 @@ onUnmounted(() => {
 .project-tags span { padding: 3px 5px; border: 1px solid rgba(255,255,255,.12); border-radius: 4px; color: rgba(255,255,255,.5); font-size: .5rem; }
 .star-badge,.open-arrow { position: absolute; z-index: 2; top: 12px; right: 12px; padding: 5px 8px; border: 1px solid rgba(255,255,255,.16); border-radius: 8px; background: rgba(3,8,20,.64); font-size: .68rem; }
 .open-arrow { width: 27px; height: 27px; padding: 0; display: grid; place-items: center; }
+.links-widget--desktop { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+.links-widget--desktop:hover { transform: none; border-color: rgba(255,255,255,.1); box-shadow: none; }
+.links-widget--desktop::before { display: none; }
+.links-widget--desktop .links-grid { flex: 1; min-height: 0; grid-template-rows: 1.35fr repeat(3,minmax(0,1fr)); }
+.links-widget--desktop .link-card { min-height: 0; }
+.links-widget--desktop .link-card:last-child:nth-child(even) { grid-column: 1/-1; }
+.links-widget--desktop .link-copy { padding: 11px 13px; }
+.links-widget--desktop .featured .link-copy { padding: 17px; }
+.links-widget--desktop .link-copy p { margin: 5px 0 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.links-widget--desktop .project-tags span:nth-child(n+4) { display: none; }
 @media(max-width:480px){.links-grid{grid-template-columns:1fr}.link-card.featured{grid-column:auto;min-height:190px}.featured .link-copy{width:75%;padding:18px}.link-card{min-height:155px}}
+@media(max-width:900px){.links-widget--desktop{height:auto}.links-widget--desktop .links-grid{grid-template-rows:none}.links-widget--desktop .link-card{min-height:148px}.links-widget--desktop .link-card.featured{min-height:220px}}
 </style>
 
 <style lang="scss">

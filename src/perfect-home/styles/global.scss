@@ -17,9 +17,18 @@ html, body {
   height: 100%;
   font-family: 'HarmonyOS Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   color: #fff;
-  overflow-x: hidden;
+  overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@media (max-width: 900px) {
+  html, body {
+    height: auto;
+    min-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
 }
 
 /* 主题背景 */

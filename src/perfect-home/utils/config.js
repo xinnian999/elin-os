@@ -30,10 +30,10 @@ function makeConfig(profile, projects, home = defaultHome) {
     },
     profile,
     projects: visibleProjects,
-    socials: [
-      profile.githubUrl && { id: "github", name: "GitHub", url: profile.githubUrl, icon: "github", color: "#d7e9ff" },
-      profile.email && { id: "email", name: "Email", url: `mailto:${profile.email}`, icon: "mail", color: "#00d4ff" },
-    ].filter(Boolean),
+    socials: (profile.contacts || [
+      profile.githubUrl && { id: "github", name: "GitHub", type: "link", value: profile.githubUrl, icon: "github", color: "#d7e9ff" },
+      profile.email && { id: "email", name: "Email", type: "email", value: profile.email, icon: "mail", color: "#00d4ff" },
+    ].filter(Boolean)).map((contact) => ({ ...contact, url: contact.type === "email" ? `mailto:${contact.value}` : contact.value })),
     links: visibleProjects.map((project, index) => ({
       ...project,
       url: project.previewUrl || project.githubUrl,
