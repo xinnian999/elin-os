@@ -174,8 +174,9 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { mainStore } from '../store'
 import BrandIcon from './BrandIcon.vue'
 import { CONTACT_PRESETS, normalizePresetContacts, syncContactInputValues } from '../utils/contact-presets'
+import { makeConfigFromSaveResults } from '../utils/config'
 
-defineEmits(['close'])
+const emit = defineEmits(['close'])
 const store = mainStore()
 const tabs = [
   { id: 'profile', label: '👤 简介' }, { id: 'home', label: '🖥️ 主页' },
@@ -326,12 +327,13 @@ const save = async () => {
   try {
     draft.profile.githubUrl = contactFor('github')?.value || ''
     draft.profile.email = contactFor('email')?.value || ''
-    await request('/api/admin/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ profile: draft.profile }) })
-    await Promise.all([
+    const profileResult = await request('/api/admin/profile', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ profile: draft.profile }) })
+    const [homeResult, worksResult] = await Promise.all([
       request('/api/admin/home', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ home: draft.home }) }),
       request('/api/admin/works', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projects: draft.projects }) }),
     ])
-    status.value = '已保存，正在刷新页面…'; setTimeout(() => window.location.reload(), 500)
+    store.setConfig(makeConfigFromSaveResults(profileResult, worksResult, homeResult))
+    status.value = '已保存，页面内容已更新'; setTimeout(() => emit('close'), 500)
   } catch (cause) { status.value = cause.message; saveState.value = 'error' }
   finally { busy.value = false }
 }

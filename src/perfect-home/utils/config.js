@@ -9,7 +9,7 @@ function githubUser(url = "") {
   catch { return "xinnian999"; }
 }
 
-function makeConfig(profile, projects, home = defaultHome) {
+export function makeConfig(profile, projects, home = defaultHome) {
   const visibleProjects = projects.filter((project) => project.visible !== false);
   return {
     site: {
@@ -56,6 +56,10 @@ function makeConfig(profile, projects, home = defaultHome) {
     background: { type: "default", customUrl: "", opacity: 1, blur: 0 },
     music: { enabled: true, autoPlay: false, volume: 0.5, playlist: [] },
   };
+}
+
+export function makeConfigFromSaveResults(profileResult, worksResult, homeResult) {
+  return makeConfig(profileResult.profile, worksResult.projects, homeResult.home);
 }
 
 async function readJson(url) {
