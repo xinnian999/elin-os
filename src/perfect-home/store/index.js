@@ -201,7 +201,9 @@ export const mainStore = defineStore('main', () => {
     coverType.value = type
   }
 
-  const initWallpapers = () => { fetchDailyBg() }
+  const initWallpapers = () => {
+    if (coverType.value === 'daily') fetchDailyBg()
+  }
 
   // ==================== 音乐播放器 ====================
   const musicOpenState = ref(false)
