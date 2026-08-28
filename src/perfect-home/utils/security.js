@@ -64,12 +64,6 @@ export function initSecurityFeatures(config) {
     return false
   })
 
-  // 禁止粘贴
-  document.addEventListener('paste', (e) => {
-    e.preventDefault()
-    return false
-  })
-
   // 禁止剪切
   document.addEventListener('cut', (e) => {
     e.preventDefault()
