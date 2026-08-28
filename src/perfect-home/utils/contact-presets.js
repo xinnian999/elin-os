@@ -85,3 +85,11 @@ export const normalizePresetContacts = (contacts = [], profile = {}) => {
   }
   return normalized
 }
+
+export const syncContactInputValues = (contacts = [], inputs = []) => {
+  const contactMap = new Map(contacts.map((contact) => [contact?.id, contact]))
+  inputs.forEach((input) => {
+    const contact = contactMap.get(input?.dataset?.contactId)
+    if (contact && typeof input.value === 'string') contact.value = input.value
+  })
+}

@@ -80,10 +80,14 @@
                     </template>
                     <input
                       v-else
-                      v-model="draft.profile.contacts[contactIndex(preset.id)].value"
+                      ref="contactInputs"
+                      :data-contact-id="preset.id"
+                      :value="contactFor(preset.id)?.value || ''"
                       :type="preset.type === 'email' ? 'email' : preset.id === 'phone' ? 'tel' : 'text'"
                       :inputmode="preset.id === 'phone' ? 'tel' : undefined"
                       :placeholder="preset.placeholder"
+                      @input="setContactValue(preset.id, $event.currentTarget.value)"
+                      @change="setContactValue(preset.id, $event.currentTarget.value)"
                     />
                   </div>
                 </section>
@@ -169,7 +173,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { mainStore } from '../store'
 import BrandIcon from './BrandIcon.vue'
-import { CONTACT_PRESETS, normalizePresetContacts } from '../utils/contact-presets'
+import { CONTACT_PRESETS, normalizePresetContacts, syncContactInputValues } from '../utils/contact-presets'
 
 defineEmits(['close'])
 const store = mainStore()
@@ -185,6 +189,7 @@ const busy = ref(false)
 const error = ref('')
 const status = ref('修改后将同步到 Cloudflare KV')
 const saveState = ref('idle')
+const contactInputs = ref([])
 const isLocal = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname)
 
 const clone = (value) => JSON.parse(JSON.stringify(value))
@@ -251,6 +256,13 @@ const removeDetail = (index) => { activeProject.value.details.splice(index, 1) }
 const contactFor = (id) => draft.profile.contacts.find((contact) => contact.id === id)
 const contactIndex = (id) => draft.profile.contacts.findIndex((contact) => contact.id === id)
 const contactEnabled = (id) => Boolean(contactFor(id))
+const setContactValue = (id, value) => {
+  const contact = contactFor(id)
+  if (contact) contact.value = value
+}
+const syncContactInputs = () => {
+  syncContactInputValues(draft.profile.contacts, contactInputs.value)
+}
 const canMoveContact = (id, direction) => {
   const index = contactIndex(id)
   const target = index + direction
@@ -309,6 +321,7 @@ const syncProduction = async () => {
   finally { busy.value = false }
 }
 const save = async () => {
+  syncContactInputs()
   busy.value = true; saveState.value = 'idle'; status.value = '正在同步简介、主页与作品…'
   try {
     draft.profile.githubUrl = contactFor('github')?.value || ''
