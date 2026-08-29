@@ -1,5 +1,5 @@
 <template>
-  <div class="widget music-widget" @keydown.stop>
+  <div class="widget music-widget" @keydown.esc.stop.prevent="closePlaylist" @keydown.stop>
     <audio
       ref="audioElement"
       :src="currentSong?.url || undefined"
@@ -17,10 +17,44 @@
     <div class="widget-header">
       <span class="widget-icon">🎵</span>
       <span class="widget-title">万万静听</span>
-      <span class="player-status" :class="{ error: errorMessage }" :title="errorMessage">{{ playerStatus }}</span>
+      <button
+        ref="playlistToggle"
+        type="button"
+        class="playlist-toggle"
+        :aria-expanded="showPlaylist"
+        aria-controls="music-playlist"
+        :disabled="!playlist.length"
+        :title="errorMessage || playerStatus"
+        @click="togglePlaylist"
+      >{{ showPlaylist ? '返回' : '切换播放列表' }}</button>
     </div>
 
-    <template v-if="currentSong">
+    <div
+      v-if="showPlaylist && playlist.length"
+      id="music-playlist"
+      class="playlist-view"
+      role="region"
+      aria-label="播放列表"
+    >
+      <button
+        v-for="(song, index) in playlist"
+        :key="song.id || `${song.name}-${index}`"
+        type="button"
+        class="playlist-song"
+        :class="{ active: index === currentIndex }"
+        :aria-current="index === currentIndex ? 'true' : undefined"
+        @click="choosePlaylistSong(index)"
+      >
+        <span class="playlist-index">{{ String(index + 1).padStart(2, '0') }}</span>
+        <span class="playlist-copy">
+          <strong :title="song.name">{{ song.name }}</strong>
+          <small :title="song.artist || '未知歌手'">{{ song.artist || '未知歌手' }}</small>
+        </span>
+        <span v-if="index === currentIndex" class="playlist-current">{{ isPlaying ? '播放中' : '当前' }}</span>
+      </button>
+    </div>
+
+    <template v-else-if="currentSong">
       <div class="player-main">
         <div class="track-summary">
           <div class="music-disc" :class="{ playing: isPlaying }" aria-hidden="true">
@@ -69,7 +103,7 @@
       <span>请在在线编辑的“万万静听”中上传</span>
     </div>
 
-    <span class="sr-only" aria-live="polite">{{ liveMessage }}</span>
+    <span class="sr-only" aria-live="polite">{{ liveMessage || playerStatus }}</span>
   </div>
 </template>
 
@@ -80,6 +114,7 @@ import { lyricAt, parseLyricPayload } from '../../utils/music-lyrics'
 
 const store = mainStore()
 const audioElement = ref(null)
+const playlistToggle = ref(null)
 const currentIndex = ref(0)
 const currentTime = ref(0)
 const duration = ref(0)
@@ -87,6 +122,7 @@ const isPlaying = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const liveMessage = ref('')
+const showPlaylist = ref(false)
 const lyricLines = ref([])
 const translatedLyricLines = ref([])
 let lyricController = null
@@ -148,6 +184,20 @@ const selectSong = (index, shouldPlay = isPlaying.value) => {
 
 const previousSong = () => selectSong(currentIndex.value - 1)
 const nextSong = () => selectSong(currentIndex.value + 1)
+const closePlaylist = () => {
+  if (!showPlaylist.value) return
+  showPlaylist.value = false
+  nextTick(() => playlistToggle.value?.focus())
+}
+const togglePlaylist = () => {
+  if (!playlist.value.length) return
+  if (showPlaylist.value) closePlaylist()
+  else showPlaylist.value = true
+}
+const choosePlaylistSong = (index) => {
+  if (index !== currentIndex.value) selectSong(index)
+  closePlaylist()
+}
 const handleEnded = () => {
   if (!playlist.value.length) return
   if (store.playerLoop === 'one') {
@@ -232,7 +282,10 @@ watch(() => currentSong.value?.lyricUrl, async (url) => {
 }, { immediate: true })
 
 watch(playlist, (songs) => {
-  if (!songs.length) currentIndex.value = 0
+  if (!songs.length) {
+    currentIndex.value = 0
+    showPlaylist.value = false
+  }
   else if (currentIndex.value >= songs.length) currentIndex.value = 0
 }, { deep: true })
 
@@ -264,7 +317,10 @@ onBeforeUnmount(() => {
 audio { display: none; }
 .widget-header { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
 .widget-icon { font-size: 15px; }.widget-title { color: var(--theme-primary); font-size: .84rem; font-weight: 700; }
-.player-status { margin-left: auto; color: rgba(255,255,255,.42); font-size: .66rem; font-variant-numeric: tabular-nums; }.player-status.error { color: #ff7199; }
+.playlist-toggle { margin-left: auto; padding: 3px 0 3px 7px; color: rgba(255,255,255,.48); background: transparent; cursor: pointer; font-size: .63rem; white-space: nowrap; transition: color .15s ease; }.playlist-toggle:hover:not(:disabled),.playlist-toggle:focus-visible { color: var(--theme-primary); outline: none; }.playlist-toggle:focus-visible { text-decoration: underline; text-underline-offset: 3px; }.playlist-toggle:disabled { opacity: .35; cursor: default; }
+.playlist-view { min-height: 0; display: grid; align-content: start; gap: 5px; overflow-y: auto; padding: 2px 3px 2px 0; }
+.playlist-song { min-width: 0; display: grid; grid-template-columns: 23px minmax(0,1fr) auto; align-items: center; gap: 7px; padding: 6px 7px; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; color: inherit; background: rgba(255,255,255,.035); text-align: left; transition: border-color .15s ease,background .15s ease; }.playlist-song:hover,.playlist-song:focus-visible { border-color: color-mix(in srgb,var(--theme-primary) 42%,transparent); background: color-mix(in srgb,var(--theme-primary) 9%,transparent); outline: none; }.playlist-song.active { border-color: color-mix(in srgb,var(--theme-primary) 28%,transparent); background: color-mix(in srgb,var(--theme-primary) 7%,transparent); }
+.playlist-index { color: rgba(255,255,255,.32); font-size: .58rem; font-variant-numeric: tabular-nums; }.playlist-copy { min-width: 0; display: grid; gap: 1px; }.playlist-copy strong,.playlist-copy small { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.playlist-copy strong { color: rgba(255,255,255,.84); font-size: .68rem; }.playlist-copy small { color: rgba(255,255,255,.4); font-size: .58rem; }.playlist-current { color: var(--theme-primary); font-size: .56rem; white-space: nowrap; }
 .player-main { display: grid; gap: 4px; }
 .track-summary { min-width: 0; display: grid; grid-template-columns: 42px minmax(0,1fr); align-items: center; gap: 10px; }
 .music-disc { position: relative; width: 42px; height: 42px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; color: #fff; background: radial-gradient(circle at center,rgba(10,16,31,.95) 0 18%,transparent 19%),var(--theme-gradient); box-shadow: 0 0 18px color-mix(in srgb,var(--theme-primary) 26%,transparent); }.music-disc img { width: 100%; height: 100%; object-fit: cover; }.music-disc:has(img)::after { position: absolute; inset: 39%; content: ''; border: 1px solid rgba(255,255,255,.45); border-radius: 50%; background: rgba(9,13,27,.9); box-shadow: 0 0 0 2px rgba(0,0,0,.16); }.music-disc span { transform: translateX(1px); font-size: 16px; }
@@ -279,6 +335,7 @@ audio { display: none; }
 @media (min-width: 901px) {
   .music-widget { display: flex; flex-direction: column; }
   .widget-header { flex: 0 0 auto; }
+  .playlist-view { flex: 1; }
   .player-main,
   .progress-row {
     width: min(100%, 240px);

@@ -216,7 +216,8 @@ onUnmounted(() => {
   width: 100%;
   height: calc(100% - 32px);
   min-height: 0;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .page-track {
@@ -233,7 +234,8 @@ onUnmounted(() => {
   height: 100%;
   min-height: 0;
   padding: 0 12px 12px;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .desktop-page--works {
