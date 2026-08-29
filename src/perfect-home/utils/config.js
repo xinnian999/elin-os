@@ -43,6 +43,7 @@ export function makeConfig(profile, projects, home = defaultHome) {
       rightClickMessage: "为了浏览体验 本站禁止右键。",
     },
     changelog: [
+      { version: "v2.3.3", desc: "修复部分歌曲无法导入的问题" },
       { version: "v2.3.2", desc: "统一操作提示，完善编辑体验" },
       { version: "v2.3.1", desc: "简化编辑提示，优化音乐添加体验" },
       { version: "v2.3.0", desc: "万万静听支持搜索歌曲与同步歌词" },

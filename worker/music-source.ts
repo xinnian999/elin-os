@@ -1,6 +1,7 @@
 export const HYL_MUSIC_PROVIDER = "xiaolin" as const;
 export const HYL_MUSIC_INTERNAL_ORIGIN = "https://hyl-music.internal";
 export const HYL_MUSIC_PUBLIC_ORIGIN = "https://music.elin521.cn";
+const MUSIC_IMAGE_SIZE = 512;
 
 export type HylMusicSearchTrack = {
   sourceId: string;
@@ -78,6 +79,15 @@ export function trustedMusicMediaUrl(value: unknown): string {
   return parsed.toString();
 }
 
+export function resizedMusicImageUrl(value: unknown): string {
+  const trusted = trustedMusicMediaUrl(value);
+  if (!trusted) return "";
+  const parsed = new URL(trusted);
+  parsed.search = "";
+  parsed.searchParams.set("param", `${MUSIC_IMAGE_SIZE}y${MUSIC_IMAGE_SIZE}`);
+  return parsed.toString();
+}
+
 function normalizedTrack(item: unknown): HylMusicSearchTrack | null {
   const song = record(item);
   if (!song) return null;
@@ -86,7 +96,7 @@ function normalizedTrack(item: unknown): HylMusicSearchTrack | null {
   if (!id || !name) return null;
   const album = record(song.al);
   let coverUrl = "";
-  try { coverUrl = trustedMusicMediaUrl(album?.picUrl); }
+  try { coverUrl = resizedMusicImageUrl(album?.picUrl); }
   catch { coverUrl = ""; }
   return {
     sourceId: String(id),
@@ -127,7 +137,7 @@ export function parseHylArtistAvatar(value: unknown, artistId: string): string {
   if (!Array.isArray(artists) || !expectedId) return "";
   const artist = record(artists.find((item) => positiveInteger(record(item)?.id) === expectedId));
   if (!artist) return "";
-  try { return trustedMusicMediaUrl(artist.picUrl || artist.img1v1Url); }
+  try { return resizedMusicImageUrl(artist.picUrl || artist.img1v1Url); }
   catch { return ""; }
 }
 

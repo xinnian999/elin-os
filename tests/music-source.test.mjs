@@ -27,7 +27,7 @@ test('normalizes and validates Xiaolin music source responses', async (t) => {
     name: '海屿你',
     artist: '马也_Crabbit、合作歌手',
     album: '海屿你',
-    coverUrl: 'https://p3.music.126.net/cover.jpg',
+    coverUrl: 'https://p3.music.126.net/cover.jpg?param=512y512',
     durationMs: 295940,
   }])
 
@@ -37,6 +37,17 @@ test('normalizes and validates Xiaolin music source responses', async (t) => {
     al: { name: '海屿你', picUrl: 'https://p3.music.126.net/cover.jpg' },
   }] }, '1973665667')
   assert.equal(detail.primaryArtistId, '13288861')
+  assert.equal(detail.coverUrl, 'https://p3.music.126.net/cover.jpg?param=512y512')
+
+  assert.equal(
+    source.resizedMusicImageUrl('http://p3.music.126.net/cover.jpg?existing=1'),
+    'https://p3.music.126.net/cover.jpg?param=512y512',
+  )
+  assert.equal(source.resizedMusicImageUrl(''), '')
+  assert.equal(source.parseHylArtistAvatar({ result: { artists: [{
+    id: 13288861,
+    picUrl: 'http://p3.music.126.net/avatar.jpg',
+  }] } }, '13288861'), 'https://p3.music.126.net/avatar.jpg?param=512y512')
 
   const audio = source.parseHylMusicAudio({ data: [{
     id: 1973665667, code: 200, url: 'http://m801.music.126.net/audio.mp3?token=temporary',
