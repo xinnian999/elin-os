@@ -144,7 +144,7 @@ const handleWindowWheel = (event) => {
   if (!insideRightPanel) return
 
   const target = event.target
-  if (target instanceof Element && target.closest('.project-backdrop, .config-editor-overlay, .settings-panel, .music-panel')) return
+  if (target instanceof Element && target.closest('.project-backdrop, .config-editor-overlay, .settings-panel')) return
   handleWheel(event)
 }
 

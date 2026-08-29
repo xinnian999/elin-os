@@ -14,9 +14,6 @@ importers:
       simple-icons:
         specifier: 16.28.0
         version: 16.28.0
-      vite:
-        specifier: 6.4.2
-        version: 6.4.2(@types/node@26.2.0)(sass@1.103.1)
       vue:
         specifier: ^3.4.24
         version: 3.5.41(typescript@7.0.2)
@@ -36,6 +33,9 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
+      vite:
+        specifier: 6.4.2
+        version: 6.4.2(@types/node@26.2.0)(sass@1.103.1)
       wrangler:
         specifier: ^4.125.0
         version: 4.125.0(@cloudflare/workers-types@5.20260823.1)

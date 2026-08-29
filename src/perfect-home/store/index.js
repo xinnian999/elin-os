@@ -9,18 +9,12 @@ export const mainStore = defineStore('main', () => {
     config.value = cfg
     if (cfg?.socials) {
       socials.value = cfg.socials.map(s => ({ ...s }))
-      // 同步到 localStorage
-      localStorage.setItem('socials', JSON.stringify(socials.value))
     }
     if (cfg?.links) {
       links.value = cfg.links.map(l => ({ ...l }))
-      // 同步到 localStorage
-      localStorage.setItem('siteLinks', JSON.stringify(links.value))
     }
     if (cfg?.site) {
       siteStartDate.value = cfg.site.startDate
-      siteStartShow.value = cfg.site.description?.showStartDate ?? true
-      if (cfg.site.github) localStorage.setItem('github_user', cfg.site.github)
     }
   }
 
@@ -28,7 +22,6 @@ export const mainStore = defineStore('main', () => {
   const imgLoadStatus = ref(false)
   const innerWidth = ref(window.innerWidth)
   const siteStartDate = ref('2024-01-01')
-  const siteStartShow = ref(true)
   const now = ref(new Date())
 
   // 主题设置
@@ -90,15 +83,10 @@ export const mainStore = defineStore('main', () => {
       document.documentElement.style.setProperty('--theme-primary', t.primary)
       document.documentElement.style.setProperty('--theme-secondary', t.secondary)
       document.documentElement.style.setProperty('--theme-gradient', t.gradient)
+      document.documentElement.style.setProperty('--theme-glass', t.glass)
+      document.documentElement.style.setProperty('--theme-glow', t.glow)
     }
   }
-
-  const isNight = computed(() => {
-    if (themeMode.value === 'light') return false
-    if (themeMode.value === 'dark') return true
-    const h = new Date().getHours()
-    return h < 6 || h >= 18
-  })
 
   const language = ref(localStorage.getItem('language') || 'zh')
   const setLanguage = (lang) => {
@@ -108,117 +96,26 @@ export const mainStore = defineStore('main', () => {
 
   // ==================== 设置面板 ====================
   const setOpenState = ref(false)
-  const activeMenu = ref('wallpaper')
+  const activeMenu = ref('personalize')
 
-  // ==================== 壁纸设置 ====================
-  const coverType = ref('default')
-
-  const defaultBgImages = ref([
+  // ==================== 背景轮播 ====================
+  const defaultBgImages = [
     'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=80',
     'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=1920&q=80',
     'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?w=1920&q=80',
     'https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?w=1920&q=80',
     'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1920&q=80'
-  ])
-
-  const dailyBgImages = ref([])
-  const currentDailyIndex = ref(0)
-
-  const sceneryBgImages = ref([
-    'https://picsum.photos/seed/nature1/1920/1080',
-    'https://picsum.photos/seed/landscape1/1920/1080',
-    'https://picsum.photos/seed/mountain1/1920/1080',
-    'https://picsum.photos/seed/ocean1/1920/1080',
-    'https://picsum.photos/seed/forest1/1920/1080',
-    'https://picsum.photos/seed/sky1/1920/1080'
-  ])
-
-  const animeBgImages = ref([
-    'https://picsum.photos/seed/anime1/1920/1080',
-    'https://picsum.photos/seed/anime2/1920/1080',
-    'https://picsum.photos/seed/anime3/1920/1080',
-    'https://picsum.photos/seed/anime4/1920/1080',
-    'https://picsum.photos/seed/anime5/1920/1080',
-    'https://picsum.photos/seed/anime6/1920/1080'
-  ])
-
-  const currentBgList = computed(() => {
-    switch (coverType.value) {
-      case 'daily': return dailyBgImages.value.length ? dailyBgImages.value : defaultBgImages.value
-      case 'random-scenery': return sceneryBgImages.value
-      case 'random-anime': return animeBgImages.value
-      default: return defaultBgImages.value
-    }
-  })
+  ]
 
   const currentBgIndex = ref(0)
-
-  const currentBg = computed(() => {
-    const list = currentBgList.value
-    if (!list.length) return defaultBgImages.value[0]
-    return list[currentBgIndex.value % list.length]
-  })
-
-  const nextBgUrl = computed(() => {
-    const list = currentBgList.value
-    if (!list.length) return defaultBgImages.value[0]
-    return list[(currentBgIndex.value + 1) % list.length]
-  })
-
-  const nextBg = () => { currentBgIndex.value = (currentBgIndex.value + 1) % currentBgList.value.length }
-  const prevBg = () => { currentBgIndex.value = (currentBgIndex.value - 1 + currentBgList.value.length) % currentBgList.value.length }
-
-  const fetchDailyBg = async () => {
-    try {
-      const res = await fetch('https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8')
-      const data = await res.json()
-      if (data.images) {
-        dailyBgImages.value = data.images.map(img => `https://cn.bing.com${img.urlbase}_1920x1080.jpg`)
-      }
-    } catch (e) { console.error('获取每日一图失败:', e) }
-  }
-
-  const refreshRandomBg = (type) => {
-    if (type === 'scenery') {
-      sceneryBgImages.value = [
-        'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=80',
-        'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1920&q=80',
-        'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1920&q=80',
-        'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1920&q=80',
-        'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?w=1920&q=80',
-        'https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=1920&q=80'
-      ]
-    } else if (type === 'anime') {
-      animeBgImages.value = [
-        'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1920&q=80',
-        'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1920&q=80',
-        'https://images.unsplash.com/photo-1614850523459-c2f4c699c52f?w=1920&q=80',
-        'https://images.unsplash.com/photo-1614732414444-096e5f1122d5?w=1920&q=80',
-        'https://images.unsplash.com/photo-1614851099175-e5b30eb6f696?w=1920&q=80',
-        'https://images.unsplash.com/photo-1614730370305-2c127d6fdb58?w=1920&q=80'
-      ]
-    }
-    coverType.value = type
-  }
-
-  const initWallpapers = () => {
-    if (coverType.value === 'daily') fetchDailyBg()
-  }
+  const currentBg = computed(() => defaultBgImages[currentBgIndex.value])
+  const nextBgUrl = computed(() => defaultBgImages[(currentBgIndex.value + 1) % defaultBgImages.length])
+  const nextBg = () => { currentBgIndex.value = (currentBgIndex.value + 1) % defaultBgImages.length }
 
   // ==================== 音乐播放器 ====================
-  const musicOpenState = ref(false)
-  const musicClick = ref(true)
   const musicVolume = ref(0.7)
-  const playerAutoplay = ref(false)
   const playerLoop = ref('all')
   const playerOrder = ref('list')
-  const playerState = ref(false)
-
-  const songs = ref([{ name: 'Player', artist: 'Demo', url: '', cover: '' }])
-  const currentSongIndex = ref(0)
-
-  const toggleMusicPanel = () => { if (musicClick.value) musicOpenState.value = !musicOpenState.value }
-  const setSongs = (newSongs) => { if (newSongs?.length > 0) { songs.value = newSongs; currentSongIndex.value = 0 } }
 
   // ==================== 访客信息 ====================
   const visitor = ref(null)
@@ -264,7 +161,6 @@ export const mainStore = defineStore('main', () => {
   setInterval(() => { now.value = new Date() }, 1000)
 
   const timeStr = computed(() => now.value.toLocaleTimeString('zh-CN', { hour12: false }))
-  const dateStr = computed(() => now.value.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }))
 
   const greeting = computed(() => {
     const h = now.value.getHours()
@@ -285,26 +181,10 @@ export const mainStore = defineStore('main', () => {
 
   const siteDays = computed(() => { const start = new Date(siteStartDate.value); const today = new Date(); return Math.floor((today - start) / (1000 * 60 * 60 * 24)) })
 
-  // ==================== Hitokoto ====================
-  const hitokoto = ref({ text: '', from: '' })
-  const hitokotoLoading = ref(true)
-
-  const fetchHitokoto = async () => {
-    hitokotoLoading.value = true
-    try {
-      const res = await fetch('https://v1.hitokoto.cn')
-      const data = await res.json()
-      hitokoto.value = { text: data.hitokoto, from: (data.from_who || '匿名') + (data.from ? `《${data.from}》` : '') }
-    } catch { hitokoto.value = { text: '生活不止眼前的苟且，还有诗和远方。', from: '高晓松' } }
-    hitokotoLoading.value = false
-  }
-
   // ==================== 番茄钟 ====================
   const pomoDuration = ref(25)
   const pomoTime = ref(25 * 60)
   const pomoRunning = ref(false)
-  const pomoMode = ref('focus')
-  const pomoCompleted = ref(0)
   const pomoStats = ref({})
 
   let pomoTimer = null
@@ -313,7 +193,7 @@ export const mainStore = defineStore('main', () => {
     pomoRunning.value = true
     pomoTimer = setInterval(() => {
       if (pomoTime.value > 0) { pomoTime.value-- }
-      else { pomoCompleted.value++; const today = new Date().toLocaleDateString(); pomoStats.value[today] = (pomoStats.value[today] || 0) + 1; stopPomo() }
+      else { const today = new Date().toLocaleDateString(); pomoStats.value[today] = (pomoStats.value[today] || 0) + 1; stopPomo() }
     }, 1000)
   }
 
@@ -321,51 +201,11 @@ export const mainStore = defineStore('main', () => {
   const resetPomo = () => { stopPomo(); pomoTime.value = pomoDuration.value * 60 }
   const setPomoDuration = (min) => { pomoDuration.value = min; resetPomo() }
 
-  // ==================== 便签板 ====================
-  const notesEnabled = ref(true)
-  const notes = ref(JSON.parse(localStorage.getItem('siteNotes') || '[]'))
-
-  const addNote = (content) => { notes.value.unshift({ id: Date.now(), content, time: new Date().toISOString() }); localStorage.setItem('siteNotes', JSON.stringify(notes.value)) }
-  const delNote = (id) => { notes.value = notes.value.filter(n => n.id !== id); localStorage.setItem('siteNotes', JSON.stringify(notes.value)) }
-
   // ==================== 项目链接 ====================
-  const links = ref(JSON.parse(localStorage.getItem('siteLinks') || 'null') || [
-    { id: 1, name: '博客', url: 'https://blog.example.com', icon: 'code', color: '#3b82f6' },
-    { id: 2, name: '图库', url: 'https://photos.example.com', icon: 'camera', color: '#10b981' },
-    { id: 3, name: '项目', url: 'https://projects.example.com', icon: 'folder', color: '#8b5cf6' },
-    { id: 4, name: '关于', url: 'https://about.example.com', icon: 'user', color: '#f59e0b' }
-  ])
-
-  const saveLinks = () => localStorage.setItem('siteLinks', JSON.stringify(links.value))
-  const addLink = (link) => { links.value.push({ id: Date.now(), ...link }); saveLinks() }
-  const delLink = (id) => { links.value = links.value.filter(l => l.id !== id); saveLinks() }
+  const links = ref([])
 
   // ==================== 社交链接 ====================
-  const socials = ref(JSON.parse(localStorage.getItem('socials') || 'null') || [
-    { id: 1, name: 'GitHub', url: 'https://github.com', icon: 'github', color: '#333' },
-    { id: 2, name: 'Gitee', url: 'https://gitee.com', icon: 'code', color: '#c71d23' },
-    { id: 3, name: 'B站', url: 'https://bilibili.com', icon: 'video', color: '#00a1d6' },
-    { id: 4, name: '邮箱', url: 'mailto:hi@example.com', icon: 'mail', color: '#ea4335' }
-  ])
-
-  const saveSocials = () => localStorage.setItem('socials', JSON.stringify(socials.value))
-  const addSocial = (social) => { socials.value.push({ id: Date.now(), ...social }); saveSocials() }
-  const delSocial = (id) => { socials.value = socials.value.filter(s => s.id !== id); saveSocials() }
-  const replaceSocials = (list) => { socials.value = list; saveSocials() }
-  const replaceLinks = (list) => { links.value = list; saveLinks() }
-
-  // 更新站点配置
-  const updateSiteConfig = (site) => {
-    siteStartDate.value = site.startDate || siteStartDate.value
-    siteStartShow.value = site.description?.showStartDate ?? siteStartShow.value
-    // 深度更新 config.site，触发响应式
-    if (config.value) {
-      config.value = {
-        ...config.value,
-        site: { ...config.value.site, ...site }
-      }
-    }
-  }
+  const socials = ref([])
 
   // ==================== 粒子效果 ====================
   const particlesEnabled = ref(localStorage.getItem('particlesEnabled') !== 'false')
@@ -392,9 +232,7 @@ export const mainStore = defineStore('main', () => {
   // ==================== 鼠标效果 ====================
   const mouseX = ref(0)
   const mouseY = ref(0)
-  const cursorGlow = ref({ x: 0, y: 0 })
-
-  const updateMouse = (e) => { mouseX.value = e.clientX; mouseY.value = e.clientY; cursorGlow.value = { x: e.clientX, y: e.clientY } }
+  const updateMouse = (e) => { mouseX.value = e.clientX; mouseY.value = e.clientY }
 
   // ==================== 动作 ====================
   const setInnerWidth = (value) => { innerWidth.value = value }
@@ -403,25 +241,20 @@ export const mainStore = defineStore('main', () => {
   return {
     config, setConfig,
     imgLoadStatus, innerWidth, setInnerWidth, setImgLoadStatus,
-    siteStartDate, siteStartShow, siteDays,
-    themeMode, isNight, language, setLanguage,
+    siteDays,
+    themeMode, language, setLanguage,
     themes, activeTheme, currentTheme, setTheme,
     setOpenState, activeMenu,
-    coverType, currentBg, nextBgUrl, currentBgIndex, nextBg, prevBg, initWallpapers, refreshRandomBg,
-    musicOpenState, musicClick, musicVolume, playerAutoplay, playerLoop, playerOrder, playerState,
-    songs, currentSongIndex, toggleMusicPanel, setSongs,
+    currentBg, nextBgUrl, nextBg,
+    musicVolume, playerLoop, playerOrder,
     visitor, fetchVisitor,
     weather, weatherLoading, fetchWeather,
-    now, timeStr, dateStr, greeting,
+    now, timeStr, greeting,
     dayProgress, weekProgress, monthProgress, yearProgress,
-    hitokoto, hitokotoLoading, fetchHitokoto,
-    pomoDuration, pomoTime, pomoRunning, pomoMode, pomoCompleted, pomoStats,
+    pomoDuration, pomoTime, pomoRunning, pomoStats,
     startPomo, stopPomo, resetPomo, setPomoDuration,
-    notesEnabled, notes, addNote, delNote,
-    links, addLink, delLink, replaceLinks,
-    socials, addSocial, delSocial, replaceSocials,
-    updateSiteConfig,
-    mouseX, mouseY, cursorGlow, updateMouse,
+    links, socials,
+    mouseX, mouseY, updateMouse,
     particlesEnabled, setParticlesEnabled,
     customCursorEnabled, setCustomCursorEnabled
   }

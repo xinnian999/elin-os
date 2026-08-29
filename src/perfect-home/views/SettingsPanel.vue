@@ -49,11 +49,6 @@
 
         <!-- 菜单内容 -->
         <div class="menu-content">
-          <!-- 个性壁纸 -->
-          <div v-if="store.activeMenu === 'wallpaper'" class="menu-section">
-            <BackgroundManager />
-          </div>
-
           <!-- 个性化调整 -->
           <div v-if="store.activeMenu === 'personalize'" class="menu-section">
             <div class="setting-item">
@@ -103,13 +98,6 @@
           <!-- 播放器配置 -->
           <div v-if="store.activeMenu === 'player'" class="menu-section">
             <div class="setting-item">
-              <span class="setting-label">自动播放</span>
-              <label class="toggle">
-                <input type="checkbox" v-model="store.playerAutoplay" />
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="setting-item">
               <span class="setting-label">随机播放</span>
               <label class="toggle">
                 <input type="checkbox" v-model="store.playerOrder" :true-value="'random'" :false-value="'list'" />
@@ -154,20 +142,6 @@
                 </button>
               </div>
             </div>
-            <div class="setting-item">
-              <span class="setting-label">便签板</span>
-              <label class="toggle">
-                <input type="checkbox" v-model="store.notesEnabled" />
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="setting-item">
-              <span class="setting-label">底栏歌词显示</span>
-              <label class="toggle">
-                <input type="checkbox" v-model="store.playerLrcShow" />
-                <span class="slider"></span>
-              </label>
-            </div>
           </div>
         </div>
       </div>
@@ -176,31 +150,22 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { mainStore } from '../store'
-import BackgroundManager from '../components/BackgroundManager.vue'
 
 const store = mainStore()
 
-const version = 'v1.3.0'
 const changelog = computed(() => store.config?.changelog || [])
+const version = computed(() => changelog.value[0]?.version || '')
 
 const setLanguage = (lang) => {
   store.setLanguage(lang)
 }
 
 const menus = [
-  { id: 'wallpaper', name: '个性壁纸', icon: '🖼️' },
   { id: 'personalize', name: '个性化调整', icon: '🎨' },
   { id: 'player', name: '播放器配置', icon: '🎵' },
   { id: 'other', name: '其他设置', icon: '⚡' }
-]
-
-const wallpapers = [
-  { value: 'default', label: '默认壁纸', icon: '🖼️' },
-  { value: 'daily', label: '每日一图', icon: '📅' },
-  { value: 'random-scenery', label: '随机风景', icon: '🏔️' },
-  { value: 'random-anime', label: '随机动漫', icon: '🎨' }
 ]
 
 const themes = [
@@ -484,7 +449,7 @@ applyTheme(store.themeMode)
   color: rgba(255, 255, 255, 0.8);
 }
 
-.wallpaper-options, .loop-options, .theme-options {
+.loop-options, .theme-options {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -507,41 +472,6 @@ applyTheme(store.themeMode)
       background: rgba(0, 212, 255, 0.2);
       border-color: #00d4ff;
       color: #00d4ff;
-    }
-  }
-}
-
-.wallpaper-preview {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-
-  img {
-    width: 200px;
-    height: 120px;
-    object-fit: cover;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-  }
-
-  .preview-actions {
-    display: flex;
-    gap: 8px;
-
-    button {
-      width: 40px;
-      height: 40px;
-      background: rgba(255, 255, 255, 0.1);
-      border: none;
-      border-radius: 8px;
-      color: #fff;
-      font-size: 16px;
-      cursor: pointer;
-      transition: all 0.3s;
-
-      &:hover {
-        background: rgba(0, 212, 255, 0.2);
-      }
     }
   }
 }

@@ -224,11 +224,16 @@ const startAutoSwitch = () => {
   }, 30000)
 }
 
+const resizeCanvas = () => {
+  if (!canvas.value) return
+  canvas.value.width = window.innerWidth
+  canvas.value.height = window.innerHeight
+}
+
 onMounted(() => {
   if (store.particlesEnabled) {
     initParticles()
   }
-  store.initWallpapers()
 
   watch(() => store.currentBg, (url) => {
     displayBackground(url)
@@ -241,17 +246,13 @@ onMounted(() => {
   // 启动自动切换
   startAutoSwitch()
 
-  window.addEventListener('resize', () => {
-    if (canvas.value) {
-      canvas.value.width = window.innerWidth
-      canvas.value.height = window.innerHeight
-    }
-  })
+  window.addEventListener('resize', resizeCanvas)
 })
 
 onUnmounted(() => {
   if (animationId) cancelAnimationFrame(animationId)
   if (bgSwitchTimer) clearInterval(bgSwitchTimer)
+  window.removeEventListener('resize', resizeCanvas)
 })
 </script>
 

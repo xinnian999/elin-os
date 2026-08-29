@@ -40,7 +40,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { mainStore } from './store'
 import { loadConfig } from './utils/config'
 import { initSecurityFeatures, initDataIntegrity } from './utils/security'
@@ -66,6 +66,8 @@ const toggleMobile = () => {
   mobileOpen.value = !mobileOpen.value
 }
 
+const syncInnerWidth = () => store.setInnerWidth(window.innerWidth)
+
 onMounted(async () => {
   // 加载配置文件
   config.value = await loadConfig()
@@ -82,10 +84,14 @@ onMounted(async () => {
   // 初始化主题（应用保存的主题）
   store.setTheme(store.activeTheme)
 
-  store.setInnerWidth(window.innerWidth)
-  window.addEventListener('resize', () => store.setInnerWidth(window.innerWidth))
+  syncInnerWidth()
+  window.addEventListener('resize', syncInnerWidth)
   // 两项数据均由同源 Worker 基于当前 Cloudflare 请求位置获取
   await Promise.allSettled([store.fetchVisitor(), store.fetchWeather()])
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', syncInnerWidth)
 })
 
 // 监听站点标题变化，同步更新浏览器标签页标题

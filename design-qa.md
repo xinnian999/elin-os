@@ -1,5 +1,7 @@
 # Desktop Pager Design QA
 
+> Historical QA snapshot for commit `85e69d6`. It records the pager refactor evidence available at that point and is not a current release acceptance report.
+
 ## Evidence
 
 - Source visual truth: `design-qa-assets/reference-xukai-page-1.png`
@@ -46,7 +48,7 @@ The combined comparison confirms the intended structural match: a fixed full-scr
 1. P2: the original footer consumed too much height and compressed error-state content in the weather card. Fixed by changing desktop footer content to a compact horizontal row; the revised first-page capture shows all six cards inside the frame.
 2. P2: the final odd project left an empty half-row on the works page. Fixed by allowing the final odd secondary project to span both grid columns; the revised works capture closes the wall cleanly.
 3. P2: the page indicator's lower-right placement and numeric counter did not match the requested desktop interaction. Fixed by centering three equal-width bars below the workspace and removing the visible number.
-4. P2: a long trackpad gesture could outlive the initial wheel lock and skip from page 1 to page 3. Fixed by extending the lock until 420 ms after the final wheel event; the full Worker preview then moved exactly 01 → 02 for one gesture.
+4. P2: a long trackpad gesture could outlive the initial wheel lock and skip from page 1 to page 3. Fixed with a 680 ms transition lock plus explicit inertial-tail, renewed-burst, direction-reversal, and boundary acknowledgement handling; one gesture now advances at most one page while a deliberate follow-up gesture can still be queued.
 5. P2: pages translated vertically and touch input used vertical distance. Fixed by changing the track to a horizontal flex strip, translating on the X axis, and accepting dominant horizontal trackpad and touch gestures.
 6. P2: the left identity stack was vertically centered after the desktop pagination refactor. Fixed by restoring top alignment while retaining the fixed-height desktop frame.
 7. P1: changing a single element's `background-image` started the next network request too late and CSS could not interpolate the image value, causing a visible cut or flash. Fixed with decoded-image preloading and two persistent background layers that crossfade only after the next image is ready.
@@ -62,4 +64,4 @@ The combined comparison confirms the intended structural match: a fixed full-scr
 
 No remaining code-level P0, P1, or P2 findings are known. At 1280 × 768, hovering inside the works page leaves its outer container at `transform: none` with no box shadow, while the hovered project card retains its own border feedback. Native macOS trackpad momentum cannot be reproduced exactly by the automated browser input, so the renewed-burst threshold still requires one final hardware confirmation. The first local Vite view cannot provide Worker-backed weather, visitor, or GitHub data, but their production API behavior was not changed by this layout work.
 
-final result: passed
+snapshot result: passed

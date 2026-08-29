@@ -59,7 +59,7 @@ test('normalizes and maps the R2-backed music playlist', async (t) => {
   assert.equal(home.music.playlist[1].url, '/media/music/2026/08/123e4567-e89b-12d3-a456-426614174001.m4a')
 
   const config = makeConfig({ name: 'Elin', contacts: [] }, [], home)
-  assert.equal(config.music.enabled, true)
+  assert.deepEqual(Object.keys(config.music), ['playlist'])
   assert.equal(config.music.playlist.length, 2)
   assert.equal(config.music.playlist[0].enabled, false)
 

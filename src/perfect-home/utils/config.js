@@ -4,11 +4,6 @@ import defaultHome from "../../data/default-home.json";
 
 const projectColors = ["#00d4ff", "#7b2ff7", "#ff0089", "#26de81", "#ffa502", "#54a0ff"];
 
-function githubUser(url = "") {
-  try { return new URL(url).pathname.split("/").filter(Boolean)[0] || "xinnian999"; }
-  catch { return "xinnian999"; }
-}
-
 export function makeConfig(profile, projects, home = defaultHome) {
   const visibleProjects = projects.filter((project) => project.visible !== false);
   const playlist = Array.isArray(home.music?.playlist) ? home.music.playlist : [];
@@ -22,12 +17,10 @@ export function makeConfig(profile, projects, home = defaultHome) {
         identity: profile.role,
         interests: profile.intro,
         location: profile.location,
-        showStartDate: true,
       },
       typewriterLines: home.site.typewriterLines,
       countdownName: home.site.countdownName,
       countdownDate: home.site.countdownDate,
-      github: githubUser(profile.githubUrl),
     },
     profile,
     projects: visibleProjects,
@@ -47,16 +40,15 @@ export function makeConfig(profile, projects, home = defaultHome) {
       disableRightClick: true,
       disableDevTools: true,
       disableSourceView: true,
-      encryptData: true,
       rightClickMessage: "为了浏览体验 本站禁止右键。",
     },
     changelog: [
-      { version: "v2.0.0", desc: "采用 Perfect Home 数字桌面，接入 Elin 主页数据" },
+      { version: "v2.2.1", desc: "清理过时代码与资源，精简配置和构建" },
+      { version: "v2.2.0", desc: "新增交互式桌面组件与 R2 万万静听" },
       { version: "v1.2.0", desc: "简介与作品由 Cloudflare KV 驱动" },
       { version: "v1.0.0", desc: "极光作品集初版" },
     ],
-    background: { type: "default", customUrl: "", opacity: 1, blur: 0 },
-    music: { enabled: playlist.some((track) => track.enabled !== false && track.url), autoPlay: false, volume: 0.5, playlist },
+    music: { playlist },
   };
 }
 
@@ -86,14 +78,4 @@ export async function loadConfig() {
     ? homeResult.value.home
     : defaultHome;
   return makeConfig(profile, projects, home);
-}
-
-export function getDefaultConfig() {
-  return makeConfig(defaultProfile, defaultWorks.projects);
-}
-
-export function encryptData(data) { return btoa(JSON.stringify(data)); }
-export function decryptData(encrypted) {
-  try { return JSON.parse(atob(encrypted)); }
-  catch { return null; }
 }
