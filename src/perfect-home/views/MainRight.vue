@@ -14,8 +14,8 @@
           v-for="(widgets, pageIndex) in widgetPages"
           :key="`widgets-${pageIndex}`"
           class="desktop-page"
-          :aria-hidden="activePage !== pageIndex"
-          :inert="activePage !== pageIndex"
+          :aria-hidden="isDesktopPagination ? activePage !== pageIndex : undefined"
+          :inert="isDesktopPagination ? activePage !== pageIndex : undefined"
         >
           <div class="dashboard-grid" :style="{ '--dashboard-row-count': Math.ceil(widgets.length / 2) }">
             <component
@@ -28,8 +28,8 @@
 
         <section
           class="desktop-page desktop-page--works"
-          :aria-hidden="activePage !== widgetPages.length"
-          :inert="activePage !== widgetPages.length"
+          :aria-hidden="isDesktopPagination ? activePage !== widgetPages.length : undefined"
+          :inert="isDesktopPagination ? activePage !== widgetPages.length : undefined"
         >
           <LinksWidget desktop />
         </section>
@@ -56,7 +56,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import ClockWidget from '../components/widgets/ClockWidget.vue'
 import WeatherWidget from '../components/widgets/WeatherWidget.vue'
 import VisitorWidget from '../components/widgets/VisitorWidget.vue'
-import HitokotoWidget from '../components/widgets/HitokotoWidget.vue'
+import MusicWidget from '../components/widgets/MusicWidget.vue'
 import CountdownWidget from '../components/widgets/CountdownWidget.vue'
 import WoodenFishWidget from '../components/widgets/WoodenFishWidget.vue'
 import TodoWidget from '../components/widgets/TodoWidget.vue'
@@ -64,6 +64,11 @@ import QuickNotesWidget from '../components/widgets/QuickNotesWidget.vue'
 import PomodoroWidget from '../components/widgets/PomodoroWidget.vue'
 import GithubContribWidget from '../components/widgets/GithubContribWidget.vue'
 import LinksWidget from '../components/widgets/LinksWidget.vue'
+import {
+  createWheelAxisLock,
+  createWheelPageGesture,
+  WHEEL_PAGE_TRANSITION_LOCK_MS,
+} from '../utils/wheel-page-gesture'
 
 const WIDGETS_PER_PAGE = 6
 const dashboardWidgets = [
@@ -71,7 +76,7 @@ const dashboardWidgets = [
   { id: 'weather', component: WeatherWidget },
   { id: 'visitor', component: VisitorWidget },
   { id: 'wooden-fish', component: WoodenFishWidget },
-  { id: 'hitokoto', component: HitokotoWidget },
+  { id: 'music', component: MusicWidget },
   { id: 'countdown', component: CountdownWidget },
   { id: 'pomodoro', component: PomodoroWidget },
   { id: 'quick-notes', component: QuickNotesWidget },
@@ -85,32 +90,15 @@ const widgetPages = Array.from(
 const pageCount = widgetPages.length + 1
 const rightPanel = ref(null)
 const activePage = ref(0)
+const isDesktopPagination = ref(window.innerWidth > 900)
 const touchStartX = ref(0)
 const touchStartY = ref(0)
-let wheelGestureHandled = false
-let wheelGestureDelta = 0
-let wheelTimer = null
-let lastWheelEventAt = 0
-let lastWheelPageAt = 0
-let lastWheelMagnitude = 0
-let lastWheelDirection = 0
-let wheelGesturePeak = 0
-let wheelTailHasDecayed = false
-let wheelRiseStreak = 0
-let wheelRiseGain = 0
-
-const resetWheelGesture = () => {
-  wheelGestureHandled = false
-  wheelGestureDelta = 0
-  wheelTimer = null
-  lastWheelEventAt = 0
-  lastWheelMagnitude = 0
-  lastWheelDirection = 0
-  wheelGesturePeak = 0
-  wheelTailHasDecayed = false
-  wheelRiseStreak = 0
-  wheelRiseGain = 0
-}
+const wheelTransitionLockMs = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  ? 0
+  : WHEEL_PAGE_TRANSITION_LOCK_MS
+const wheelAxisLock = createWheelAxisLock()
+const wheelPageGesture = createWheelPageGesture({ transitionLockMs: wheelTransitionLockMs })
+let wheelUnlockTimer = null
 
 const goToPage = (page) => {
   activePage.value = Math.max(0, Math.min(pageCount - 1, page))
@@ -118,72 +106,32 @@ const goToPage = (page) => {
 
 const changePage = (direction) => {
   const nextPage = Math.max(0, Math.min(pageCount - 1, activePage.value + direction))
-  if (nextPage === activePage.value) return
+  if (nextPage === activePage.value) return false
   activePage.value = nextPage
+  return true
+}
+
+const applyWheelPageChange = (direction, now = performance.now()) => {
+  const applied = changePage(direction)
+  wheelPageGesture.commit(applied, now)
+  if (!applied || wheelTransitionLockMs === 0) return
+
+  if (wheelUnlockTimer) window.clearTimeout(wheelUnlockTimer)
+  wheelUnlockTimer = window.setTimeout(() => {
+    wheelUnlockTimer = null
+    const queuedDirection = wheelPageGesture.unlock(performance.now())
+    if (queuedDirection) applyWheelPageChange(queuedDirection)
+  }, wheelTransitionLockMs)
 }
 
 const handleWheel = (event) => {
   if (window.innerWidth <= 900) return
-  const delta = Math.abs(event.deltaX) >= Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+  const now = performance.now()
+  const delta = wheelAxisLock.pick(event.deltaX, event.deltaY, now)
   if (Math.abs(delta) < 1) return
   event.preventDefault()
-  const now = performance.now()
-  const magnitude = Math.abs(delta)
-  const direction = Math.sign(delta)
-  const eventGap = now - lastWheelEventAt
-  const sincePageChange = now - lastWheelPageAt
-  const magnitudeRise = magnitude - lastWheelMagnitude
-
-  if (wheelGestureHandled) {
-    wheelGesturePeak = Math.max(wheelGesturePeak, magnitude)
-    if (magnitude <= wheelGesturePeak * 0.72) wheelTailHasDecayed = true
-
-    const meaningfulRise = magnitudeRise >= Math.max(1.2, lastWheelMagnitude * 0.12)
-    if (wheelTailHasDecayed && meaningfulRise) {
-      wheelRiseStreak += 1
-      wheelRiseGain += magnitudeRise
-    } else if (magnitudeRise <= 0) {
-      wheelRiseStreak = 0
-      wheelRiseGain = 0
-    }
-  }
-
-  const renewedBurst = wheelGestureHandled
-    && wheelTailHasDecayed
-    && sincePageChange > 100
-    && (
-      magnitudeRise >= Math.max(4, lastWheelMagnitude * 0.35)
-      || (wheelRiseStreak >= 2 && wheelRiseGain >= Math.max(4, wheelGesturePeak * 0.2))
-    )
-  const reversedBurst = wheelGestureHandled
-    && sincePageChange > 90
-    && direction !== lastWheelDirection
-    && magnitude >= 6
-
-  if (eventGap > 90 || renewedBurst || reversedBurst) {
-    wheelGestureHandled = false
-    wheelGestureDelta = 0
-    wheelGesturePeak = 0
-    wheelTailHasDecayed = false
-    wheelRiseStreak = 0
-    wheelRiseGain = 0
-  }
-
-  lastWheelEventAt = now
-  lastWheelMagnitude = magnitude
-  lastWheelDirection = direction
-  if (wheelTimer) window.clearTimeout(wheelTimer)
-  wheelTimer = window.setTimeout(resetWheelGesture, 90)
-  wheelGestureDelta += delta
-  if (wheelGestureHandled) return
-  if (Math.abs(wheelGestureDelta) < 18) return
-  wheelGestureHandled = true
-  lastWheelPageAt = now
-  wheelGesturePeak = magnitude
-  wheelTailHasDecayed = false
-  wheelRiseStreak = 0
-  wheelRiseGain = 0
-  changePage(wheelGestureDelta > 0 ? 1 : -1)
+  const direction = wheelPageGesture.push(delta, now)
+  if (direction) applyWheelPageChange(direction, now)
 }
 
 const handleWindowWheel = (event) => {
@@ -202,6 +150,8 @@ const handleWindowWheel = (event) => {
 
 const handleKeydown = (event) => {
   if (window.innerWidth <= 900) return
+  const target = event.target
+  if (target instanceof Element && target.closest('button, input, select, textarea, a, [contenteditable="true"], [role="slider"]')) return
   if (['ArrowDown', 'PageDown', 'ArrowRight'].includes(event.key)) {
     event.preventDefault()
     changePage(1)
@@ -228,14 +178,22 @@ const handleTouchEnd = (event) => {
   }
 }
 
+const syncPaginationMode = () => {
+  isDesktopPagination.value = window.innerWidth > 900
+}
+
 onMounted(() => {
+  syncPaginationMode()
+  window.addEventListener('resize', syncPaginationMode)
   window.addEventListener('wheel', handleWindowWheel, { passive: false, capture: true })
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', syncPaginationMode)
   window.removeEventListener('wheel', handleWindowWheel, { capture: true })
-  if (wheelTimer) window.clearTimeout(wheelTimer)
-  resetWheelGesture()
+  if (wheelUnlockTimer) window.clearTimeout(wheelUnlockTimer)
+  wheelAxisLock.reset()
+  wheelPageGesture.reset()
 })
 </script>
 
@@ -274,7 +232,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 12px;
+  padding: 0 12px 12px;
   overflow: hidden;
 }
 

@@ -2,6 +2,7 @@ import defaultConfig from "../src/data/default-projects.json";
 import defaultProfile from "../src/data/default-profile.json";
 import defaultHome from "../src/data/default-home.json";
 import { normalizeHome, normalizeProfile, normalizeProjects, parseGithubRepository } from "./schema";
+import { parseSingleByteRange } from "./media-range";
 
 const WORKS_KEY = "portfolio:works:v1";
 const PROFILE_KEY = "portfolio:profile:v1";
@@ -11,6 +12,7 @@ const CONTRIBUTIONS_TTL_SECONDS = 15 * 60;
 const MAX_GITHUB_HTML_BYTES = 512 * 1024;
 const MAX_CONFIG_BYTES = 96 * 1024;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 50 * 1024 * 1024;
 const MAX_LOGIN_BYTES = 1024;
 const SESSION_COOKIE = "elin_admin_session";
 const SESSION_SECONDS = 30 * 24 * 60 * 60;
@@ -20,6 +22,20 @@ const IMAGE_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/webp": "webp",
   "image/gif": "gif",
+};
+const AUDIO_TYPES: Record<string, string> = {
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/mp4": "m4a",
+  "audio/x-m4a": "m4a",
+  "audio/aac": "aac",
+  "audio/ogg": "ogg",
+  "application/ogg": "ogg",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/webm": "webm",
+  "audio/flac": "flac",
+  "audio/x-flac": "flac",
 };
 
 type WorksConfig = {
@@ -536,16 +552,75 @@ async function uploadMedia(request: Request, env: Env): Promise<Response> {
   return json({ key, url: `/media/${key}` }, { status: 201 });
 }
 
+async function uploadMusic(request: Request, env: Env): Promise<Response> {
+  const contentType = (request.headers.get("Content-Type") || "").split(";")[0].toLowerCase();
+  const extension = AUDIO_TYPES[contentType];
+  if (!extension) return json({ error: "只支持 MP3、M4A、AAC、OGG、WAV、WebM 和 FLAC 音频" }, { status: 415 });
+  const contentLengthHeader = request.headers.get("Content-Length");
+  if (!contentLengthHeader) return json({ error: "无法确认音频大小" }, { status: 411 });
+  const contentLength = Number(contentLengthHeader);
+  if (!Number.isSafeInteger(contentLength) || contentLength <= 0) return json({ error: "音频大小无效" }, { status: 400 });
+  if (contentLength > MAX_AUDIO_BYTES) return json({ error: "音频不能超过 50 MB" }, { status: 413 });
+  if (!request.body) return json({ error: "没有收到音频内容" }, { status: 400 });
+
+  const now = new Date();
+  const key = `music/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${crypto.randomUUID()}.${extension}`;
+  const encodedName = request.headers.get("X-File-Name") || "";
+  let originalName = "audio";
+  try { originalName = decodeURIComponent(encodedName).slice(0, 180) || "audio"; } catch { originalName = "audio"; }
+  let result: R2Object;
+  try {
+    result = await env.MEDIA.put(key, request.body, {
+      httpMetadata: { contentType, cacheControl: "public, max-age=31536000, immutable, no-transform" },
+      customMetadata: { originalName },
+    });
+  } catch (error) {
+    console.error(JSON.stringify({ message: "music upload failed", error: error instanceof Error ? error.message : String(error) }));
+    return json({ error: "音频上传失败，请稍后重试" }, { status: 502 });
+  }
+  if (!result) return json({ error: "音频上传未完成" }, { status: 500 });
+  return json({ key, url: `/media/${key}`, originalName, size: result.size, contentType }, { status: 201 });
+}
+
+function mediaHeaders(object: R2Object): Headers {
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("Accept-Ranges", "bytes");
+  headers.set("Content-Length", String(object.size));
+  headers.set("ETag", object.httpEtag);
+  headers.set("X-Content-Type-Options", "nosniff");
+  return headers;
+}
+
 async function serveMedia(request: Request, env: Env, pathname: string): Promise<Response> {
   let key: string;
   try { key = decodeURIComponent(pathname.slice("/media/".length)); } catch { return new Response("Bad Request", { status: 400 }); }
   if (!key || key.includes("..")) return new Response("Not Found", { status: 404 });
+
+  const rangeHeader = request.headers.get("Range");
+  if (request.method === "HEAD" || rangeHeader) {
+    const head = await env.MEDIA.head(key);
+    if (!head) return new Response("Not Found", { status: 404 });
+    const headers = mediaHeaders(head);
+    if (request.headers.get("If-None-Match") === head.httpEtag) return new Response(null, { status: 304, headers });
+    if (request.method === "HEAD") return new Response(null, { status: 200, headers });
+
+    const parsedRange = parseSingleByteRange(rangeHeader, head.size);
+    if (parsedRange.kind !== "range") {
+      headers.set("Content-Range", `bytes */${head.size}`);
+      headers.set("Content-Length", "0");
+      return new Response(null, { status: 416, headers });
+    }
+    const object = await env.MEDIA.get(key, { range: { offset: parsedRange.offset, length: parsedRange.length } });
+    if (!object) return new Response("Not Found", { status: 404 });
+    headers.set("Content-Length", String(parsedRange.length));
+    headers.set("Content-Range", `bytes ${parsedRange.offset}-${parsedRange.end}/${head.size}`);
+    return new Response(object.body, { status: 206, headers });
+  }
+
   const object = await env.MEDIA.get(key);
   if (!object) return new Response("Not Found", { status: 404 });
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);
-  headers.set("ETag", object.httpEtag);
-  headers.set("X-Content-Type-Options", "nosniff");
+  const headers = mediaHeaders(object);
   if (request.headers.get("If-None-Match") === object.httpEtag) return new Response(null, { status: 304, headers });
   return new Response(object.body, { status: 200, headers });
 }
@@ -560,7 +635,7 @@ export default {
       if (request.method === "GET" && url.pathname === "/api/visitor") return publicVisitor(request);
       if (request.method === "GET" && url.pathname === "/api/weather") return publicWeather(request);
       if (request.method === "GET" && url.pathname === "/api/github-contributions") return publicGithubContributions(env);
-      if (request.method === "GET" && url.pathname.startsWith("/media/")) return serveMedia(request, env, url.pathname);
+      if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/media/")) return serveMedia(request, env, url.pathname);
 
       if (url.pathname.startsWith("/api/admin/")) {
         if (url.pathname === "/api/admin/session") {
@@ -579,6 +654,7 @@ export default {
         if (request.method === "PUT" && url.pathname === "/api/admin/profile") return saveProfile(request, env);
         if (request.method === "PUT" && url.pathname === "/api/admin/home") return saveHome(request, env);
         if (request.method === "POST" && url.pathname === "/api/admin/media") return uploadMedia(request, env);
+        if (request.method === "POST" && url.pathname === "/api/admin/music") return uploadMusic(request, env);
         return json({ error: "接口不存在" }, { status: 404 });
       }
 

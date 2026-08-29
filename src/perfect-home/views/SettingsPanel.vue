@@ -85,13 +85,6 @@
               </div>
             </div>
             <div class="setting-item">
-              <span class="setting-label">音乐点击打开面板</span>
-              <label class="toggle">
-                <input type="checkbox" v-model="store.musicClick" />
-                <span class="slider"></span>
-              </label>
-            </div>
-            <div class="setting-item">
               <span class="setting-label">粒子背景特效</span>
               <label class="toggle">
                 <input type="checkbox" :checked="store.particlesEnabled" @change="store.setParticlesEnabled($event.target.checked)" />

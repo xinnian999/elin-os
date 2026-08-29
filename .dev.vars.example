@@ -1,0 +1,3 @@
+# Copy this file to .dev.vars and choose a local-only editor password.
+# Never reuse the production ADMIN_TOKEN here.
+ADMIN_TOKEN=replace-with-a-local-only-password

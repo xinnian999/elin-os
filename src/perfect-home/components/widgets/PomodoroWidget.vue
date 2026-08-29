@@ -243,4 +243,21 @@ const todayCompleted = computed(() => {
   color: rgba(255, 255, 255, 0.5);
   text-align: center;
 }
+
+@media (min-width: 901px) {
+  .pomo-widget {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .widget-header {
+    flex: 0 0 auto;
+  }
+
+  .pomo-content {
+    flex: 1;
+    min-height: 0;
+    justify-content: safe center;
+  }
+}
 </style>

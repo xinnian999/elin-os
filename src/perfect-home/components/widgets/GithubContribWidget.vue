@@ -263,4 +263,33 @@ onMounted(() => {
 
   &:hover { background: rgba(0,212,255,0.2); }
 }
+
+@media (min-width: 901px) {
+  .github-widget {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .widget-header {
+    flex: 0 0 auto;
+  }
+
+  .contrib-content,
+  .loading,
+  .error {
+    flex: 1;
+    min-height: 0;
+    justify-content: safe center;
+  }
+
+  .contrib-content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .loading,
+  .error {
+    padding-block: 0;
+  }
+}
 </style>

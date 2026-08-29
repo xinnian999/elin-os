@@ -27,7 +27,6 @@
             <label>身份<input v-model="draft.profile.role" /></label>
             <label class="wide">个人简介<textarea v-model="draft.profile.intro" rows="3" /></label>
             <label>所在地<input v-model="draft.profile.location" /></label>
-            <label>页脚文案<input v-model="draft.profile.footer" /></label>
             <div class="contacts-editor wide">
               <div class="section-title contacts-title">
                 <div>
@@ -103,6 +102,17 @@
             <label>倒计时名称<input v-model="draft.home.site.countdownName" /></label>
             <label>倒计时日期<input v-model="draft.home.site.countdownDate" type="date" /></label>
             <label class="wide">打字机标语（每行一句）<textarea v-model="typewriterText" rows="5" /></label>
+            <div class="section-title footer-settings-title wide">
+              <div>
+                <span>页脚信息</span>
+                <small>留空可隐藏对应内容；版权文案支持使用 {year} 表示当前年份</small>
+              </div>
+            </div>
+            <label>备案文字<input v-model="draft.home.footer.filingText" maxlength="100" /></label>
+            <label>备案链接<input v-model="draft.home.footer.filingUrl" type="url" maxlength="500" placeholder="https://beian.miit.gov.cn/" /></label>
+            <label class="wide">版权文案<input v-model="draft.home.footer.copyrightText" maxlength="120" placeholder="Copyright © {year} Elin" /></label>
+            <label>UI 署名文字<input v-model="draft.home.footer.uiCreditText" maxlength="100" /></label>
+            <label>UI 署名链接<input v-model="draft.home.footer.uiCreditUrl" type="url" maxlength="500" placeholder="https://github.com/…" /></label>
           </div>
         </div>
 
@@ -146,6 +156,65 @@
           </div>
         </div>
 
+        <div v-if="activeTab === 'music'" class="tab-content">
+          <div class="music-editor">
+            <div class="music-editor-header">
+              <div>
+                <strong>万万静听歌单</strong>
+                <p>音频文件保存到 Cloudflare R2；歌名、歌手与排序随主页配置保存。</p>
+              </div>
+              <label class="upload-btn music-upload-btn" :class="{ disabled: busy || draft.home.music.playlist.length >= 20 }">
+                <span>＋ 上传并添加歌曲</span>
+                <input
+                  class="file-input-overlay"
+                  type="file"
+                  aria-label="上传并添加歌曲"
+                  accept="audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/wav,audio/webm,audio/flac,.mp3,.m4a,.aac,.ogg,.wav,.webm,.flac"
+                  :disabled="busy || draft.home.music.playlist.length >= 20"
+                  @change="uploadSong($event)"
+                />
+              </label>
+            </div>
+
+            <p v-if="!draft.home.music.playlist.length" class="music-empty">暂无歌曲。上传音频后，填写歌名并保存即可在主页播放。</p>
+
+            <div class="music-track-list">
+              <section v-for="(song, index) in draft.home.music.playlist" :key="song.id" class="music-track-card">
+                <div class="music-track-head">
+                  <span class="music-track-index">{{ String(index + 1).padStart(2, '0') }}</span>
+                  <label class="music-track-state"><input v-model="song.enabled" type="checkbox" /> 在播放器中展示</label>
+                  <div class="music-track-actions">
+                    <button type="button" :disabled="index === 0" :aria-label="`${song.name || '歌曲'}上移`" @click="moveSong(index, -1)">↑</button>
+                    <button type="button" :disabled="index === draft.home.music.playlist.length - 1" :aria-label="`${song.name || '歌曲'}下移`" @click="moveSong(index, 1)">↓</button>
+                    <button type="button" class="remove-song" :aria-label="`移除${song.name || '歌曲'}`" @click="removeSong(index)">移除</button>
+                  </div>
+                </div>
+                <div class="form-grid music-track-fields">
+                  <label>歌曲名<input v-model="song.name" maxlength="100" /></label>
+                  <label>歌手（可选）<input v-model="song.artist" maxlength="100" /></label>
+                  <div class="music-source-field wide">
+                    <span>R2 音频</span>
+                    <div class="upload-row">
+                      <input :value="musicSourceName(song.url)" class="source-input" aria-label="R2 音频文件" readonly />
+                      <label class="upload-btn" :class="{ disabled: busy }">
+                        <span>替换音频</span>
+                        <input
+                          class="file-input-overlay"
+                          type="file"
+                          :aria-label="`替换${song.name || '歌曲'}音频`"
+                          accept="audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/wav,audio/webm,audio/flac,.mp3,.m4a,.aac,.ogg,.wav,.webm,.flac"
+                          :disabled="busy"
+                          @change="uploadSong($event, song)"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+
         <div v-if="activeTab === 'announcement'" class="tab-content">
           <div class="form-grid">
             <label class="switches wide"><input v-model="draft.home.announcement.enabled" type="checkbox" /> 显示公告</label>
@@ -180,7 +249,8 @@ const emit = defineEmits(['close'])
 const store = mainStore()
 const tabs = [
   { id: 'profile', label: '👤 简介' }, { id: 'home', label: '🖥️ 主页' },
-  { id: 'projects', label: '📁 作品' }, { id: 'announcement', label: '📢 公告' },
+  { id: 'projects', label: '📁 作品' }, { id: 'music', label: '🎵 万万静听' },
+  { id: 'announcement', label: '📢 公告' },
 ]
 const activeTab = ref('profile')
 const projectIndex = ref(0)
@@ -196,6 +266,13 @@ const isLocal = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.locat
 const clone = (value) => JSON.parse(JSON.stringify(value))
 const initialProfile = clone(store.config?.profile || {})
 initialProfile.contacts = normalizePresetContacts(initialProfile.contacts, initialProfile)
+const defaultFooter = {
+  filingText: '冀ICP备2025100393号-1',
+  filingUrl: 'https://beian.miit.gov.cn/',
+  copyrightText: 'Copyright © {year} Elin',
+  uiCreditText: 'UI based on Perfect Home',
+  uiCreditUrl: 'https://github.com/327261086/perfect-home',
+}
 const draft = reactive({
   profile: initialProfile, projects: clone(store.config?.projects || []),
   home: {
@@ -205,6 +282,8 @@ const draft = reactive({
       countdownName: store.config?.site?.countdownName || '新年倒计时', countdownDate: store.config?.site?.countdownDate || '2027-01-01',
     },
     announcement: clone(store.config?.announcement || {}),
+    footer: { ...defaultFooter, ...clone(store.config?.footer || {}) },
+    music: { playlist: clone(store.config?.music?.playlist || []) },
   },
 })
 const activeProject = computed(() => draft.projects[projectIndex.value] || null)
@@ -303,6 +382,59 @@ const uploadContactQr = async (event, contact) => {
   } catch (cause) { status.value = cause.message; saveState.value = 'error' }
   finally { busy.value = false; event.target.value = '' }
 }
+const audioContentType = (file) => {
+  const normalizedType = file.type.toLowerCase()
+  if (new Set([
+    'audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/ogg',
+    'application/ogg', 'audio/wav', 'audio/x-wav', 'audio/webm', 'audio/flac', 'audio/x-flac',
+  ]).has(normalizedType)) return normalizedType
+  const extension = file.name.split('.').pop()?.toLowerCase()
+  return {
+    mp3: 'audio/mpeg', m4a: 'audio/mp4', aac: 'audio/aac', ogg: 'audio/ogg',
+    wav: 'audio/wav', webm: 'audio/webm', flac: 'audio/flac',
+  }[extension] || 'application/octet-stream'
+}
+const trackNameFromFile = (fileName) => fileName.replace(/\.[^.]+$/, '').trim().slice(0, 100) || '新歌曲'
+const uploadSong = async (event, song = null) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  if (file.size > 50 * 1024 * 1024) {
+    status.value = '音频不能超过 50 MB'; saveState.value = 'error'; event.target.value = ''; return
+  }
+  busy.value = true; saveState.value = 'idle'; status.value = `正在上传 ${file.name} 到 R2…`
+  try {
+    const data = await request('/api/admin/music', {
+      method: 'POST',
+      headers: { 'Content-Type': audioContentType(file), 'X-File-Name': encodeURIComponent(file.name) },
+      body: file,
+    })
+    if (song) {
+      song.url = data.url
+      if (!song.name) song.name = trackNameFromFile(file.name)
+    } else {
+      draft.home.music.playlist.push({
+        id: `track-${crypto.randomUUID()}`,
+        name: trackNameFromFile(file.name),
+        artist: '',
+        url: data.url,
+        enabled: true,
+      })
+    }
+    status.value = '音频已上传到 R2，点击保存后更新主页歌单'
+  } catch (cause) { status.value = cause.message; saveState.value = 'error' }
+  finally { busy.value = false; event.target.value = '' }
+}
+const moveSong = (index, direction) => {
+  const target = index + direction
+  if (target < 0 || target >= draft.home.music.playlist.length) return
+  const [song] = draft.home.music.playlist.splice(index, 1)
+  draft.home.music.playlist.splice(target, 0, song)
+}
+const removeSong = (index) => { draft.home.music.playlist.splice(index, 1) }
+const musicSourceName = (url = '') => {
+  try { return decodeURIComponent(url.split('/').pop() || url) }
+  catch { return url }
+}
 const syncProduction = async () => {
   busy.value = true; saveState.value = 'idle'; status.value = '正在从线上 KV 读取最新配置…'
   try {
@@ -355,11 +487,13 @@ onUnmounted(restoreContextMenu)
 .editor-tabs button,.project-list button { flex: none; padding: 8px 14px; color: rgba(255,255,255,.72); background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; cursor: pointer; }.editor-tabs button.active,.project-list button.active { color: var(--theme-primary); border-color: var(--theme-primary); background: rgba(0,212,255,.14); }
 .tab-content { min-height: 0; flex: 1; padding: 18px; overflow: auto; }.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }.form-grid>label { display: grid; gap: 7px; color: rgba(255,255,255,.65); font-size: .8rem; }.wide { grid-column: 1/-1; }textarea { resize: vertical; }
 .projects-tab { display: grid; grid-template-columns: 190px 1fr; gap: 18px; }.project-list { display: flex; flex-direction: column; gap: 8px; }.project-list button { display: flex; justify-content: space-between; gap: 8px; text-align: left; }.project-list small { color: rgba(255,255,255,.4); }.project-form { min-width: 0; }
-.switches { display: flex!important; align-items: center; gap: 20px!important; }.switches label { display: flex; align-items: center; gap: 7px; }.switches input { width: auto; }.upload-row { display: flex; gap: 8px; }.upload-btn { flex: none; padding: 10px 14px; border-radius: 8px; color: var(--theme-primary); background: rgba(0,212,255,.12); cursor: pointer; }.upload-btn input { display: none; }
+.switches { display: flex!important; align-items: center; gap: 20px!important; }.switches label { display: flex; align-items: center; gap: 7px; }.switches input { width: auto; }.upload-row { display: flex; gap: 8px; }.upload-btn { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 10px 14px; border: 0; border-radius: 8px; color: var(--theme-primary); background: rgba(0,212,255,.12); cursor: pointer; font: inherit; overflow: hidden; }.upload-btn:focus-within { outline: 2px solid var(--theme-primary); outline-offset: 2px; }.upload-btn.disabled { opacity: .5; cursor: not-allowed; }.file-input-overlay { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; opacity: 0; cursor: pointer; }.file-input-overlay:disabled { cursor: not-allowed; }
 .details-editor { display: grid; gap: 10px; }.section-title { display: flex; align-items: center; justify-content: space-between; color: rgba(255,255,255,.65); font-size: .8rem; }.detail-row { display: grid; grid-template-columns: 150px 1fr auto; gap: 8px; align-items: start; }.mini-btn,.detail-remove { padding: 7px 10px; border: 1px solid rgba(0,212,255,.25); border-radius: 7px; color: var(--theme-primary); background: rgba(0,212,255,.1); cursor: pointer; }.detail-remove { color: #ff7199; border-color: rgba(255,113,153,.25); background: rgba(255,113,153,.1); }.empty-hint { margin: 0; color: rgba(255,255,255,.4); font-size: .8rem; }
+.music-editor { display: grid; gap: 14px; }.music-editor-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-bottom: 4px; }.music-editor-header>div { display: grid; gap: 5px; }.music-editor-header strong { color: rgba(255,255,255,.9); font-size: .92rem; }.music-editor-header p { margin: 0; color: rgba(255,255,255,.48); font-size: .74rem; }.music-upload-btn { align-self: center; white-space: nowrap; }.music-empty { margin: 8px 0 0; padding: 32px 18px; border: 1px dashed rgba(255,255,255,.14); border-radius: 12px; color: rgba(255,255,255,.45); text-align: center; font-size: .8rem; }.music-track-list { display: grid; gap: 12px; }.music-track-card { padding: 14px; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; background: rgba(255,255,255,.025); }.music-track-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }.music-track-index { color: var(--theme-primary); font-size: .72rem; font-weight: 750; font-variant-numeric: tabular-nums; }.music-track-state { display: flex; align-items: center; gap: 7px; color: rgba(255,255,255,.65); font-size: .76rem; }.music-track-state input { width: auto; }.music-track-actions { display: flex; gap: 6px; margin-left: auto; }.music-track-actions button { min-width: 30px; height: 30px; padding: 0 8px; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; color: rgba(255,255,255,.7); background: rgba(255,255,255,.06); cursor: pointer; }.music-track-actions button:hover:not(:disabled) { color: var(--theme-primary); border-color: rgba(0,212,255,.35); }.music-track-actions .remove-song { color: #ff7199; border-color: rgba(255,113,153,.22); }.music-track-fields { gap: 10px 12px; }.music-source-field { display: grid; gap: 7px; color: rgba(255,255,255,.65); font-size: .8rem; }.source-input { color: rgba(255,255,255,.48); text-overflow: ellipsis; }
+.footer-settings-title { margin-top: 4px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.08); }.footer-settings-title>div { display: grid; gap: 3px; }.footer-settings-title small { color: rgba(255,255,255,.42); font-size: .7rem; font-weight: 400; }
 .contacts-editor { display: grid; gap: 12px; padding-top: 8px; }.contacts-title { padding-bottom: 2px; }.contacts-title>div { display: grid; gap: 3px; }.contacts-title small { color: rgba(255,255,255,.42); font-size: .7rem; font-weight: 400; }.enabled-count { color: rgba(255,255,255,.48); font-size: .7rem; }
 .contact-preset-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }.contact-preset { min-width: 0; padding: 12px; border: 1px solid rgba(255,255,255,.09); border-radius: 12px; background: rgba(255,255,255,.025); transition: border-color .2s ease,background .2s ease,box-shadow .2s ease; }.contact-preset.enabled { border-color: color-mix(in srgb,var(--contact-color) 42%,rgba(255,255,255,.1)); background: linear-gradient(135deg,color-mix(in srgb,var(--contact-color) 10%,transparent),rgba(255,255,255,.025)); box-shadow: inset 0 1px 0 rgba(255,255,255,.035); }.contact-preset-head { display: grid; grid-template-columns: 30px 1fr auto auto; align-items: center; gap: 9px; }.contact-brand-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; color: var(--contact-color); background: color-mix(in srgb,var(--contact-color) 13%,rgba(255,255,255,.04)); }.contact-brand-icon svg { width: 17px; height: 17px; }.contact-brand-name { color: rgba(255,255,255,.86); font-size: .78rem; font-weight: 650; }.contact-order-actions { display: flex; gap: 4px; }.contact-order-actions button { width: 26px; height: 26px; padding: 0; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; color: rgba(255,255,255,.68); background: rgba(255,255,255,.06); cursor: pointer; }.contact-order-actions button:hover:not(:disabled) { color: var(--theme-primary); border-color: color-mix(in srgb,var(--theme-primary) 45%,transparent); background: color-mix(in srgb,var(--theme-primary) 10%,transparent); }.contact-order-actions button:disabled { opacity: .25; cursor: default; }.contact-toggle { width: 36px; height: 20px; padding: 2px; border: 0; border-radius: 99px; background: rgba(255,255,255,.14); cursor: pointer; transition: background .2s ease; }.contact-toggle span { display: block; width: 16px; height: 16px; border-radius: 50%; background: rgba(255,255,255,.72); transition: transform .2s ease,background .2s ease; }.contact-toggle[aria-checked="true"] { background: var(--theme-gradient); }.contact-toggle[aria-checked="true"] span { transform: translateX(16px); background: #fff; }.contact-preset-body { min-height: 40px; display: flex; align-items: center; gap: 9px; margin-top: 11px; }.contact-preset-body>input { height: 38px; font-size: .74rem; }.contact-upload { flex: none; padding: 9px 11px; border-radius: 8px; color: var(--contact-color); background: color-mix(in srgb,var(--contact-color) 12%,transparent); font-size: .72rem; cursor: pointer; }.contact-upload input { display: none; }.contact-empty { color: rgba(255,255,255,.35); font-size: .68rem; }.contact-qr-preview { width: 40px; height: 40px; flex: none; padding: 3px; box-sizing: border-box; object-fit: contain; background: #fff; border-radius: 8px; }
 .primary-btn,.secondary-btn,.danger-btn { padding: 9px 18px; border: 0; border-radius: 8px; color: #fff; cursor: pointer; }.primary-btn { background: var(--theme-gradient); }.secondary-btn { margin-right: 8px; background: rgba(255,255,255,.1); }.danger-btn { margin-top: 18px; background: rgba(255,50,100,.24); }button:disabled { opacity: .55; cursor: wait; }.message { min-height: 1em; color: rgba(255,255,255,.6); font-size: .82rem; }.message.error { color: #ff7199; }
 .footer-actions { display: flex; align-items: center; gap: 8px; }.footer-actions .secondary-btn { margin-right: 0; }.sync-btn { margin-right: 6px; padding: 9px 13px; border: 1px solid rgba(0,212,255,.28); border-radius: 8px; color: var(--theme-primary); background: rgba(0,212,255,.09); cursor: pointer; }
-@media (max-width:700px) { .config-editor-overlay { padding: 8px; }.config-editor { width: 100%; height: 94vh; }.form-grid { grid-template-columns: 1fr; }.wide { grid-column: auto; }.projects-tab { display: block; }.project-list { flex-direction: row; overflow-x: auto; margin-bottom: 16px; }.detail-row { grid-template-columns: 1fr; }.contact-preset-grid { grid-template-columns: 1fr; }.editor-footer { align-items: flex-start; flex-direction: column; }.footer-actions { width: 100%; flex-wrap: wrap; }.sync-btn { margin-right: auto; } }
+@media (max-width:700px) { .config-editor-overlay { padding: 8px; }.config-editor { width: 100%; height: 94vh; }.form-grid { grid-template-columns: 1fr; }.wide { grid-column: auto; }.projects-tab { display: block; }.project-list { flex-direction: row; overflow-x: auto; margin-bottom: 16px; }.detail-row { grid-template-columns: 1fr; }.contact-preset-grid { grid-template-columns: 1fr; }.music-editor-header { align-items: flex-start; flex-direction: column; }.music-track-head { flex-wrap: wrap; }.music-track-actions { width: 100%; margin-left: 0; }.editor-footer { align-items: flex-start; flex-direction: column; }.footer-actions { width: 100%; flex-wrap: wrap; }.sync-btn { margin-right: auto; } }
 </style>

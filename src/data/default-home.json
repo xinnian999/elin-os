@@ -11,11 +11,21 @@
     "countdownName": "2027 新年倒计时",
     "countdownDate": "2027-01-01"
   },
+  "footer": {
+    "filingText": "冀ICP备2025100393号-1",
+    "filingUrl": "https://beian.miit.gov.cn/",
+    "copyrightText": "Copyright © {year} Elin",
+    "uiCreditText": "UI based on Perfect Home",
+    "uiCreditUrl": "https://github.com/327261086/perfect-home"
+  },
   "announcement": {
     "enabled": true,
     "text": "✨ Elin 2.0 · 保持好奇，持续构建",
     "speed": 48,
     "backgroundColor": "rgba(0, 212, 255, 0.1)",
     "textColor": "#00d4ff"
+  },
+  "music": {
+    "playlist": []
   }
 }

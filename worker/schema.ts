@@ -1,5 +1,6 @@
 export const MAX_PROJECTS = 24;
 export const MAX_CONTACTS = 16;
+export const MAX_MUSIC_TRACKS = 20;
 const MAX_DETAILS = 6;
 
 const CONTACT_PRESETS = {
@@ -57,6 +58,14 @@ export type Profile = {
   contacts: Contact[];
 };
 
+export type MusicTrack = {
+  id: string;
+  name: string;
+  artist: string;
+  url: string;
+  enabled: boolean;
+};
+
 export type HomeConfig = {
   site: {
     avatar: string;
@@ -72,6 +81,24 @@ export type HomeConfig = {
     backgroundColor: string;
     textColor: string;
   };
+  footer: {
+    filingText: string;
+    filingUrl: string;
+    copyrightText: string;
+    uiCreditText: string;
+    uiCreditUrl: string;
+  };
+  music: {
+    playlist: MusicTrack[];
+  };
+};
+
+const DEFAULT_FOOTER: HomeConfig["footer"] = {
+  filingText: "冀ICP备2025100393号-1",
+  filingUrl: "https://beian.miit.gov.cn/",
+  copyrightText: "Copyright © {year} Elin",
+  uiCreditText: "UI based on Perfect Home",
+  uiCreditUrl: "https://github.com/327261086/perfect-home",
 };
 
 function stringValue(value: unknown, field: string, maxLength: number, required = false): string {
@@ -94,6 +121,65 @@ function safeUrl(value: unknown, field: string, allowLocal = false): string {
   }
   if (parsed.protocol !== "https:") throw new Error(`${field} 必须使用 HTTPS`);
   return parsed.toString();
+}
+
+function normalizeFooter(value: unknown): HomeConfig["footer"] {
+  const footer = value === undefined ? {} : value;
+  if (!footer || typeof footer !== "object" || Array.isArray(footer)) throw new Error("页脚配置格式错误");
+  const config = footer as Record<string, unknown>;
+  return {
+    filingText: stringValue(config.filingText ?? DEFAULT_FOOTER.filingText, "备案信息", 120),
+    filingUrl: safeUrl(config.filingUrl ?? DEFAULT_FOOTER.filingUrl, "备案链接"),
+    copyrightText: stringValue(config.copyrightText ?? DEFAULT_FOOTER.copyrightText, "版权信息", 160),
+    uiCreditText: stringValue(config.uiCreditText ?? DEFAULT_FOOTER.uiCreditText, "UI 署名", 120),
+    uiCreditUrl: safeUrl(config.uiCreditUrl ?? DEFAULT_FOOTER.uiCreditUrl, "UI 署名链接"),
+  };
+}
+
+function musicMediaUrl(value: unknown, field: string): string {
+  const normalized = stringValue(value ?? "", field, 500, true);
+  let pathname = normalized;
+  if (!normalized.startsWith("/")) {
+    let parsed: URL;
+    try { parsed = new URL(normalized); }
+    catch { throw new Error(`${field} 不是有效链接`); }
+    if (parsed.protocol !== "https:") throw new Error(`${field} 必须使用 HTTPS`);
+    if (!new Set(["elin521.cn", "www.elin521.cn"]).has(parsed.hostname)) {
+      throw new Error(`${field} 必须使用在线编辑上传到 R2`);
+    }
+    pathname = parsed.pathname;
+  }
+  if (!/^\/media\/music\/\d{4}\/(0[1-9]|1[0-2])\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(mp3|m4a|aac|ogg|wav|webm|flac)$/.test(pathname)) {
+    throw new Error(`${field} 必须使用在线编辑上传到 R2`);
+  }
+  return pathname;
+}
+
+function normalizeMusic(value: unknown): HomeConfig["music"] {
+  if (value === undefined) return { playlist: [] };
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("音乐配置格式错误");
+  const music = value as Record<string, unknown>;
+  const playlist = music.playlist === undefined ? [] : music.playlist;
+  if (!Array.isArray(playlist)) throw new Error("音乐列表必须是数组");
+  if (playlist.length > MAX_MUSIC_TRACKS) throw new Error(`歌曲不能超过 ${MAX_MUSIC_TRACKS} 首`);
+
+  const tracks = playlist.map((item, index): MusicTrack => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error(`第 ${index + 1} 首歌曲格式错误`);
+    const track = item as Record<string, unknown>;
+    const id = stringValue(track.id ?? `track-${index + 1}`, `第 ${index + 1} 首歌曲 ID`, 80, true);
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) throw new Error(`歌曲 ID“${id}”只能包含小写字母、数字和连字符`);
+    const url = musicMediaUrl(track.url ?? "", `第 ${index + 1} 首歌曲地址`);
+    return {
+      id,
+      name: stringValue(track.name, `第 ${index + 1} 首歌曲名称`, 100, true),
+      artist: stringValue(track.artist ?? "", `第 ${index + 1} 首歌曲歌手`, 100),
+      url,
+      enabled: track.enabled !== false,
+    };
+  });
+
+  if (new Set(tracks.map((track) => track.id)).size !== tracks.length) throw new Error("歌曲 ID 不能重复");
+  return { playlist: tracks };
 }
 
 function contactValue(value: unknown, type: Contact["type"], field: string): string {
@@ -216,6 +302,8 @@ export function normalizeHome(value: unknown): HomeConfig {
       backgroundColor: stringValue(announcement.backgroundColor, "公告背景色", 80, true),
       textColor: stringValue(announcement.textColor, "公告文字色", 40, true),
     },
+    footer: normalizeFooter(root.footer),
+    music: normalizeMusic(root.music),
   };
 }
 

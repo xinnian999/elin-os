@@ -149,4 +149,26 @@ const maskedIp = computed(() => {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+@media (min-width: 901px) {
+  .visitor-widget {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .widget-header {
+    flex: 0 0 auto;
+  }
+
+  .visitor-content,
+  .loading {
+    flex: 1;
+    min-height: 0;
+    justify-content: center;
+  }
+
+  .loading {
+    padding-block: 0;
+  }
+}
 </style>

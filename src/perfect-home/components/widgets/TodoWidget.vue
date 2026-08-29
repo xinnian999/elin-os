@@ -6,47 +6,49 @@
       <span class="todo-count">{{ completedCount }}/{{ todos.length }}</span>
     </div>
 
-    <!-- 添加输入 -->
-    <div class="todo-input-wrap">
-      <input
-        v-model="newTodo"
-        @keyup.enter="addTodo"
-        placeholder="添加待办..."
-        class="todo-input"
-      />
-      <button @click="addTodo" class="add-btn">+</button>
-    </div>
-
-    <!-- 待办列表 -->
-    <div class="todo-list">
-      <div
-        class="todo-item"
-        v-for="todo in todos"
-        :key="todo.id"
-        :class="{ done: todo.completed }"
-      >
-        <label class="checkbox">
-          <input type="checkbox" v-model="todo.completed" @change="saveTodos" />
-          <span class="checkmark"></span>
-        </label>
-        <span class="todo-text">{{ todo.text }}</span>
-        <button class="del-btn" @click="delTodo(todo.id)">×</button>
+    <div class="todo-content">
+      <!-- 添加输入 -->
+      <div class="todo-input-wrap">
+        <input
+          v-model="newTodo"
+          @keyup.enter="addTodo"
+          placeholder="添加待办..."
+          class="todo-input"
+        />
+        <button @click="addTodo" class="add-btn">+</button>
       </div>
 
-      <div class="empty-state" v-if="todos.length === 0">
-        <span class="empty-icon">📝</span>
-        <span class="empty-text">暂无待办</span>
-      </div>
-    </div>
+      <!-- 待办列表 -->
+      <div class="todo-list">
+        <div
+          class="todo-item"
+          v-for="todo in todos"
+          :key="todo.id"
+          :class="{ done: todo.completed }"
+        >
+          <label class="checkbox">
+            <input type="checkbox" v-model="todo.completed" @change="saveTodos" />
+            <span class="checkmark"></span>
+          </label>
+          <span class="todo-text">{{ todo.text }}</span>
+          <button class="del-btn" @click="delTodo(todo.id)">×</button>
+        </div>
 
-    <!-- 底部操作 -->
-    <div class="todo-footer" v-if="todos.length > 0">
-      <button class="clear-btn" @click="clearCompleted" v-if="completedCount > 0">
-        清除已完成
-      </button>
-      <button class="clear-all-btn" @click="clearAll" v-if="todos.length > 0">
-        清空全部
-      </button>
+        <div class="empty-state" v-if="todos.length === 0">
+          <span class="empty-icon">📝</span>
+          <span class="empty-text">暂无待办</span>
+        </div>
+      </div>
+
+      <!-- 底部操作 -->
+      <div class="todo-footer" v-if="todos.length > 0">
+        <button class="clear-btn" @click="clearCompleted" v-if="completedCount > 0">
+          清除已完成
+        </button>
+        <button class="clear-all-btn" @click="clearAll" v-if="todos.length > 0">
+          清空全部
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -339,6 +341,30 @@ onMounted(() => {
   &:hover {
     border-color: #ff6490;
     color: #ff6490;
+  }
+}
+
+@media (min-width: 901px) {
+  .todo-widget {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .widget-header {
+    flex: 0 0 auto;
+  }
+
+  .todo-content {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    justify-content: safe center;
+  }
+
+  .todo-list {
+    flex: 0 1 auto;
+    min-height: 0;
   }
 }
 </style>

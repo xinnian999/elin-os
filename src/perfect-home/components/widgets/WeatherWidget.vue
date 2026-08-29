@@ -17,8 +17,8 @@
         </div>
       </div>
       <div class="weather-info">
-        <div class="weather-text">{{ store.weather.text }}</div>
-        <div class="weather-city">📍 {{ store.weather.city }}</div>
+        <div class="weather-text" :title="store.weather.text">{{ store.weather.text }}</div>
+        <div class="weather-city" :title="store.weather.city">📍 {{ store.weather.city }}</div>
       </div>
       <div class="weather-details" v-if="store.weather.humidity || store.weather.wind">
         <div class="detail-item" v-if="store.weather.humidity">
@@ -180,13 +180,18 @@ const isNight = computed(() => {
 }
 
 .weather-text {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.82rem;
   color: rgba(255, 255, 255, 0.9);
   font-weight: 500;
 }
 
 .weather-city {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -283,6 +288,32 @@ const isNight = computed(() => {
   &:hover {
     background: rgba(0, 212, 255, 0.2);
     border-color: rgba(0, 212, 255, 0.4);
+  }
+}
+
+@media (min-width: 901px) {
+  .weather-content {
+    width: min(100%, 212px);
+    margin-inline: auto;
+    align-content: center;
+  }
+
+  .weather-main,
+  .weather-info,
+  .weather-details {
+    justify-content: center;
+  }
+
+  .weather-details {
+    margin-top: 0;
+    gap: 28px;
+  }
+
+  .loading,
+  .error {
+    flex: 1;
+    min-height: 0;
+    padding-block: 0;
   }
 }
 </style>

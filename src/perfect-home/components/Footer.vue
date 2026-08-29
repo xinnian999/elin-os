@@ -20,13 +20,19 @@
 
       <!-- 底部信息 -->
       <div class="footer-info">
-        <a :href="store.config?.profile?.githubUrl" target="_blank">⬛ Elin GitHub</a>
-        <span class="dot">·</span>
-        <span>Powered by Vue 3 + Vite + Pinia</span>
-        <span class="dot">·</span>
-        <span>Copyright © {{ year }} Elin</span>
-        <span class="dot">·</span>
-        <a href="https://github.com/327261086/perfect-home" target="_blank" rel="noreferrer">UI based on Perfect Home</a>
+        <template v-for="(item, index) in footerItems" :key="item.id">
+          <span v-if="index > 0" class="dot">·</span>
+          <a v-if="item.url" :href="item.url" target="_blank" rel="noreferrer">{{ item.text }}</a>
+          <span v-else>{{ item.text }}</span>
+        </template>
+        <button
+          v-if="store.config"
+          type="button"
+          class="footer-config-btn"
+          title="在线编辑"
+          aria-label="在线编辑"
+          @click="$emit('open-config')"
+        >⚙️</button>
       </div>
     </div>
   </footer>
@@ -36,8 +42,25 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { mainStore } from '../store'
 
+defineEmits(['open-config'])
+
 const store = mainStore()
 const year = new Date().getFullYear()
+const cleanText = (value) => typeof value === 'string' ? value.trim() : ''
+const footerItems = computed(() => {
+  const profile = store.config?.profile || {}
+  const footer = store.config?.footer || {}
+  const githubUrl = cleanText(profile.githubUrl)
+  const filingText = cleanText(footer.filingText)
+  const copyrightText = cleanText(footer.copyrightText).replaceAll('{year}', String(year))
+  const uiCreditText = cleanText(footer.uiCreditText)
+  return [
+    githubUrl && { id: 'github', text: '⬛ Elin GitHub', url: githubUrl },
+    filingText && { id: 'filing', text: filingText, url: cleanText(footer.filingUrl) },
+    copyrightText && { id: 'copyright', text: copyrightText, url: '' },
+    uiCreditText && { id: 'ui-credit', text: uiCreditText, url: cleanText(footer.uiCreditUrl) },
+  ].filter(Boolean)
+})
 const startDate = computed(() => new Date(store.config?.site?.startDate || '2024-01-01'))
 const now = ref(Date.now())
 let timer = null
@@ -207,5 +230,33 @@ onUnmounted(() => {
   }
 
   .dot { opacity: 0.3; }
+}
+
+.footer-config-btn {
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  flex: 0 0 24px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  color: rgba(255, 255, 255, 0.45);
+  background: transparent;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.72;
+  transition: color 0.2s ease, opacity 0.2s ease;
+
+  &:hover {
+    color: var(--theme-primary);
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--theme-primary);
+    outline-offset: 2px;
+  }
 }
 </style>

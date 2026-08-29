@@ -294,4 +294,38 @@ onMounted(() => {
   font-size: 0.7rem;
   color: rgba(255, 255, 255, 0.5);
 }
+
+@media (min-width: 901px) {
+  .quick-notes-widget {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .widget-header {
+    flex: 0 0 auto;
+  }
+
+  .notes-content {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    margin-top: 0;
+    flex-direction: column;
+    justify-content: safe center;
+    overflow: hidden;
+  }
+
+  .notes-list {
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+
+  .collapsed-count {
+    display: grid;
+    flex: 1;
+    min-height: 0;
+    margin-top: 0;
+    place-content: center;
+  }
+}
 </style>

@@ -5,10 +5,11 @@
   "packageManager": "pnpm@11.18.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "pnpm cf:dev",
+    "dev:frontend": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "cf:dev": "node scripts/cloudflare-dev.mjs",
+    "cf:dev": "pnpm build && node scripts/cloudflare-dev.mjs",
     "cf:types": "wrangler types",
     "cf:check": "wrangler deploy --dry-run",
     "typecheck": "tsc -p tsconfig.worker.json"

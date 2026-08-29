@@ -11,6 +11,7 @@ function githubUser(url = "") {
 
 export function makeConfig(profile, projects, home = defaultHome) {
   const visibleProjects = projects.filter((project) => project.visible !== false);
+  const playlist = Array.isArray(home.music?.playlist) ? home.music.playlist : [];
   return {
     site: {
       title: profile.name || "Elin",
@@ -41,6 +42,7 @@ export function makeConfig(profile, projects, home = defaultHome) {
       color: projectColors[index % projectColors.length],
     })),
     announcement: home.announcement,
+    footer: { ...defaultHome.footer, ...(home.footer || {}) },
     security: {
       disableRightClick: true,
       disableDevTools: true,
@@ -54,7 +56,7 @@ export function makeConfig(profile, projects, home = defaultHome) {
       { version: "v1.0.0", desc: "极光作品集初版" },
     ],
     background: { type: "default", customUrl: "", opacity: 1, blur: 0 },
-    music: { enabled: true, autoPlay: false, volume: 0.5, playlist: [] },
+    music: { enabled: playlist.some((track) => track.enabled !== false && track.url), autoPlay: false, volume: 0.5, playlist },
   };
 }
 

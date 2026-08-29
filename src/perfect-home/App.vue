@@ -31,28 +31,11 @@
     <!-- Settings Panel -->
     <SettingsPanel v-if="store.setOpenState" />
 
-    <!-- Music Player Panel -->
-    <MusicPanel v-if="store.musicOpenState" />
-
-    <!-- Music Player Enhanced -->
-    <MusicPlayerEnhanced v-if="showMusicPlayer" @close="showMusicPlayer = false" />
-
-    <!-- Music Player Toggle Button -->
-    <button
-      v-if="store.config?.music?.enabled"
-      class="music-toggle-btn"
-      @click="showMusicPlayer = !showMusicPlayer"
-      :title="showMusicPlayer ? '关闭音乐' : '打开音乐'"
-    >
-      🎵
-    </button>
-
     <!-- Footer -->
-    <Footer />
+    <Footer @open-config="showConfigEditor = true" />
 
     <!-- perfect-home 原生编辑入口，数据保存到 Cloudflare KV -->
     <ConfigEditor v-if="showConfigEditor && store.config" @close="showConfigEditor = false" />
-    <button v-if="store.config" class="config-float-btn" @click="showConfigEditor = true" title="在线编辑">⚙️</button>
   </div>
 </template>
 
@@ -67,17 +50,14 @@ import Background from './components/Background.vue'
 import MainLeft from './views/MainLeft.vue'
 import MainRight from './views/MainRight.vue'
 import SettingsPanel from './views/SettingsPanel.vue'
-import MusicPanel from './components/MusicPanel.vue'
 import Footer from './components/Footer.vue'
 import TypewriterBanner from './components/TypewriterBanner.vue'
 import CustomCursor from './components/CustomCursor.vue'
-import MusicPlayerEnhanced from './components/MusicPlayerEnhanced.vue'
 import ConfigEditor from './components/ConfigEditor.vue'
 
 const store = mainStore()
 const mobileOpen = ref(false)
 const config = ref(null)
-const showMusicPlayer = ref(false)
 const showConfigEditor = ref(false)
 
 const isMobile = computed(() => store.innerWidth < 720)
@@ -106,7 +86,6 @@ onMounted(async () => {
   window.addEventListener('resize', () => store.setInnerWidth(window.innerWidth))
   // 两项数据均由同源 Worker 基于当前 Cloudflare 请求位置获取
   await Promise.allSettled([store.fetchVisitor(), store.fetchWeather()])
-  store.fetchHitokoto()
 })
 
 // 监听站点标题变化，同步更新浏览器标签页标题
@@ -197,47 +176,4 @@ watch(
   }
 }
 
-.config-float-btn {
-  position: fixed;
-  bottom: 80px;
-  right: 20px;
-  width: 48px;
-  height: 48px;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  font-size: 20px;
-  cursor: pointer;
-  z-index: 99;
-  transition: all 0.3s ease;
-
-  &:hover {
-    background: var(--theme-gradient);
-    transform: scale(1.1);
-    box-shadow: 0 4px 20px var(--theme-glow);
-  }
-}
-
-.music-toggle-btn {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 48px;
-  height: 48px;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  font-size: 20px;
-  cursor: pointer;
-  z-index: 99;
-  transition: all 0.3s ease;
-
-  &:hover {
-    background: var(--theme-gradient);
-    transform: scale(1.1);
-    box-shadow: 0 4px 20px var(--theme-glow);
-  }
-}
 </style>

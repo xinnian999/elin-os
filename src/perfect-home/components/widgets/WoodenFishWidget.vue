@@ -292,4 +292,23 @@ onUnmounted(() => {
 @media (prefers-reduced-motion: reduce) {
   .wooden-fish-widget, .wooden-fish, .mallet, .merit-pop { animation: none !important; transition: none !important; }
 }
+
+@media (min-width: 901px) {
+  .wooden-fish-widget {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .widget-header {
+    flex: 0 0 auto;
+  }
+
+  .fish-stage {
+    margin-top: auto;
+  }
+
+  .fish-copy {
+    margin-bottom: auto;
+  }
+}
 </style>
