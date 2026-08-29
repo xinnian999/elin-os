@@ -964,7 +964,7 @@ export default {
     } catch (error) {
       const message = error instanceof Error ? error.message : "未知错误";
       console.error(JSON.stringify({ message: "request failed", method: request.method, path: url.pathname, error: message }));
-      return json({ error: message }, { status: 400 });
+      return json({ error: "操作失败，请稍后重试" }, { status: 500 });
     }
   },
 } satisfies ExportedHandler<Env>;

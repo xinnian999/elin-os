@@ -126,7 +126,7 @@
 
           <div v-if="activeProject" class="project-form">
             <div class="form-grid">
-              <label>项目标识<input v-model="activeProject.id" placeholder="例如 my-project" /></label>
+              <label>作品标识<input v-model="activeProject.id" placeholder="例如 my-project" /></label>
               <label>项目名称<input v-model="activeProject.name" /></label>
               <label>项目类型<input v-model="activeProject.eyebrow" /></label>
               <label>使用技术（逗号分隔）<input :value="activeProject.stack.join(', ')" @input="setStack" /></label>

@@ -194,7 +194,7 @@ function musicLyricUrl(value: unknown, field: string): string {
 function durationValue(value: unknown, field: string): number {
   if (value === undefined || value === null || value === "") return 0;
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 24 * 60 * 60 * 1_000) {
-    throw new Error(`${field} 必须是有效的毫秒数`);
+    throw new Error(`${field}信息无效`);
   }
   return value;
 }
@@ -389,7 +389,7 @@ function projectValue(value: unknown, index: number): Project {
     featured: Boolean(project.featured),
     visible: project.visible !== false,
     previewUrl: safeUrl(project.previewUrl ?? "", "在线体验链接"),
-    githubUrl: safeUrl(project.githubUrl ?? "", "GitHub 源码链接"),
+    githubUrl: safeUrl(project.githubUrl ?? "", "GitHub 链接"),
     installCommand: stringValue(project.installCommand ?? "", "安装命令", 180),
     details: details.map((detail, detailIndex) => {
       if (!Array.isArray(detail) || detail.length !== 2) throw new Error(`第 ${detailIndex + 1} 个详情段落格式错误`);
