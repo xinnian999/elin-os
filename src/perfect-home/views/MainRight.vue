@@ -96,7 +96,7 @@ const touchStartY = ref(0)
 const wheelTransitionLockMs = window.matchMedia('(prefers-reduced-motion: reduce)').matches
   ? 0
   : WHEEL_PAGE_TRANSITION_LOCK_MS
-const wheelAxisLock = createWheelAxisLock()
+const wheelAxisLock = createWheelAxisLock({ horizontalOnly: true })
 const wheelPageGesture = createWheelPageGesture({ transitionLockMs: wheelTransitionLockMs })
 let wheelUnlockTimer = null
 
@@ -152,11 +152,11 @@ const handleKeydown = (event) => {
   if (window.innerWidth <= 900) return
   const target = event.target
   if (target instanceof Element && target.closest('button, input, select, textarea, a, [contenteditable="true"], [role="slider"]')) return
-  if (['ArrowDown', 'PageDown', 'ArrowRight'].includes(event.key)) {
+  if (event.key === 'ArrowRight') {
     event.preventDefault()
     changePage(1)
   }
-  if (['ArrowUp', 'PageUp', 'ArrowLeft'].includes(event.key)) {
+  if (event.key === 'ArrowLeft') {
     event.preventDefault()
     changePage(-1)
   }

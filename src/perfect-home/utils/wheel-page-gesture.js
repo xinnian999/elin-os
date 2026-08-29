@@ -7,7 +7,11 @@ const DEFAULT_MIN_DELTA = 1
 const DEFAULT_CANDIDATE_GAP_MS = 80
 const DEFAULT_DISCRETE_GESTURE_DELTA = 80
 
-export function createWheelAxisLock({ idleMs = DEFAULT_NEW_GESTURE_IDLE_MS } = {}) {
+export function createWheelAxisLock({
+  idleMs = DEFAULT_NEW_GESTURE_IDLE_MS,
+  horizontalOnly = false,
+  horizontalDominanceRatio = 1.25,
+} = {}) {
   let axis = null
   let lastEventAt = null
 
@@ -19,10 +23,14 @@ export function createWheelAxisLock({ idleMs = DEFAULT_NEW_GESTURE_IDLE_MS } = {
 
       if (lastEventAt === null || now - lastEventAt > idleMs) axis = null
       lastEventAt = now
+      const isClearlyHorizontal = Math.abs(x) > Math.abs(y) * horizontalDominanceRatio
       if (!axis) {
         if (Math.abs(x) < 1 && Math.abs(y) < 1) return 0
-        axis = Math.abs(x) >= Math.abs(y) ? 'x' : 'y'
+        axis = horizontalOnly
+          ? (isClearlyHorizontal ? 'x' : 'y')
+          : (Math.abs(x) >= Math.abs(y) ? 'x' : 'y')
       }
+      if (horizontalOnly && (axis !== 'x' || !isClearlyHorizontal)) return 0
       return axis === 'x' ? x : y
     },
 

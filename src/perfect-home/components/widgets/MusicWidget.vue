@@ -22,11 +22,13 @@
         type="button"
         class="playlist-toggle"
         :aria-expanded="showPlaylist"
+        :aria-label="showPlaylist ? '返回播放器' : '切换播放列表'"
         aria-controls="music-playlist"
         :disabled="!playlist.length"
-        :title="errorMessage || playerStatus"
         @click="togglePlaylist"
-      >{{ showPlaylist ? '返回' : '切换播放列表' }}</button>
+      >
+        <span class="playlist-menu-icon" aria-hidden="true"><i /><i /><i /></span>
+      </button>
     </div>
 
     <div
@@ -317,8 +319,8 @@ onBeforeUnmount(() => {
 audio { display: none; }
 .widget-header { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
 .widget-icon { font-size: 15px; }.widget-title { color: var(--theme-primary); font-size: .84rem; font-weight: 700; }
-.playlist-toggle { margin-left: auto; padding: 3px 0 3px 7px; color: rgba(255,255,255,.48); background: transparent; cursor: pointer; font-size: .63rem; white-space: nowrap; transition: color .15s ease; }.playlist-toggle:hover:not(:disabled),.playlist-toggle:focus-visible { color: var(--theme-primary); outline: none; }.playlist-toggle:focus-visible { text-decoration: underline; text-underline-offset: 3px; }.playlist-toggle:disabled { opacity: .35; cursor: default; }
-.playlist-view { min-height: 0; display: grid; align-content: start; gap: 5px; overflow-y: auto; padding: 2px 3px 2px 0; }
+.playlist-toggle { width: 26px; height: 24px; margin-left: auto; padding: 0; display: grid; place-items: center; border-radius: 7px; color: rgba(255,255,255,.48); background: transparent; cursor: pointer; transition: color .15s ease,background .15s ease; }.playlist-toggle:hover:not(:disabled),.playlist-toggle:focus-visible { color: var(--theme-primary); background: rgba(255,255,255,.06); outline: none; }.playlist-toggle:focus-visible { box-shadow: 0 0 0 1px color-mix(in srgb,var(--theme-primary) 45%,transparent); }.playlist-toggle:disabled { opacity: .35; cursor: default; }.playlist-menu-icon { width: 13px; display: grid; gap: 2px; }.playlist-menu-icon i { width: 100%; height: 1.5px; display: block; border-radius: 99px; background: currentColor; }
+.playlist-view { min-height: 0; display: grid; align-content: start; gap: 5px; overflow-y: auto; overscroll-behavior-y: contain; padding: 2px 3px 2px 0; }
 .playlist-song { min-width: 0; display: grid; grid-template-columns: 23px minmax(0,1fr) auto; align-items: center; gap: 7px; padding: 6px 7px; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; color: inherit; background: rgba(255,255,255,.035); text-align: left; transition: border-color .15s ease,background .15s ease; }.playlist-song:hover,.playlist-song:focus-visible { border-color: color-mix(in srgb,var(--theme-primary) 42%,transparent); background: color-mix(in srgb,var(--theme-primary) 9%,transparent); outline: none; }.playlist-song.active { border-color: color-mix(in srgb,var(--theme-primary) 28%,transparent); background: color-mix(in srgb,var(--theme-primary) 7%,transparent); }
 .playlist-index { color: rgba(255,255,255,.32); font-size: .58rem; font-variant-numeric: tabular-nums; }.playlist-copy { min-width: 0; display: grid; gap: 1px; }.playlist-copy strong,.playlist-copy small { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.playlist-copy strong { color: rgba(255,255,255,.84); font-size: .68rem; }.playlist-copy small { color: rgba(255,255,255,.4); font-size: .58rem; }.playlist-current { color: var(--theme-primary); font-size: .56rem; white-space: nowrap; }
 .player-main { display: grid; gap: 4px; }

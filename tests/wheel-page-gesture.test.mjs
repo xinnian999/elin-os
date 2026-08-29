@@ -38,6 +38,28 @@ test('the axis lock preserves vertical-wheel fallback and resets after silence',
   assert.equal(axisLock.pick(20, -5, 500), 20)
 })
 
+test('horizontal-only axis lock leaves a vertical wheel stream to native scrolling', () => {
+  const axisLock = createWheelAxisLock({ horizontalOnly: true })
+
+  assert.equal(axisLock.pick(2, 30, 0), 0)
+  assert.equal(axisLock.pick(20, 5, 16), 0)
+  assert.equal(axisLock.pick(20, 5, 500), 20)
+})
+
+test('horizontal-only axis lock rejects an ambiguous diagonal gesture', () => {
+  const axisLock = createWheelAxisLock({ horizontalOnly: true })
+
+  assert.equal(axisLock.pick(13, 12, 0), 0)
+  assert.equal(axisLock.pick(24, 4, 16), 0)
+})
+
+test('horizontal-only axis lock releases vertical scrolling after a horizontal page gesture', () => {
+  const axisLock = createWheelAxisLock({ horizontalOnly: true })
+
+  assert.equal(axisLock.pick(20, 2, 0), 20)
+  assert.equal(axisLock.pick(2, 30, 100), 0)
+})
+
 test('the reported inertial rebound can advance at most one page', () => {
   const gesture = createWheelPageGesture()
   const events = [
