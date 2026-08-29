@@ -161,10 +161,10 @@
             <div class="music-editor-header">
               <div>
                 <strong>万万静听歌单</strong>
-                <p>音频文件保存到 Cloudflare R2；歌名、歌手与排序随主页配置保存。</p>
+                <p>可从小琳音乐站完整导入，也可手动上传音频、封面和歌词；文件统一保存到 Cloudflare R2。</p>
               </div>
               <label class="upload-btn music-upload-btn" :class="{ disabled: busy || draft.home.music.playlist.length >= 20 }">
-                <span>＋ 上传并添加歌曲</span>
+                <span>＋ 手动上传歌曲</span>
                 <input
                   class="file-input-overlay"
                   type="file"
@@ -176,12 +176,54 @@
               </label>
             </div>
 
-            <p v-if="!draft.home.music.playlist.length" class="music-empty">暂无歌曲。上传音频后，填写歌名并保存即可在主页播放。</p>
+            <section class="music-search-panel">
+              <div class="music-search-heading">
+                <div>
+                  <strong>搜索小琳音乐站</strong>
+                  <span>导入后会固化音频、专辑封面、歌手头像和歌词，不保存临时播放链接。</span>
+                </div>
+                <a href="https://music.elin521.cn" target="_blank" rel="noreferrer">打开音乐站 ↗</a>
+              </div>
+              <form class="music-search-form" @submit.prevent="searchMusic">
+                <input v-model="musicSearchQuery" maxlength="80" placeholder="输入歌名、歌手或专辑" aria-label="搜索小琳音乐站" />
+                <button type="submit" class="music-search-btn" :disabled="musicSearching || !musicSearchQuery.trim()">
+                  {{ musicSearching ? '搜索中…' : '搜索' }}
+                </button>
+              </form>
+              <p class="music-rights-note">仅导入你拥有使用和公开播放权限的内容。</p>
+              <p v-if="musicSearchError" class="music-search-feedback error">{{ musicSearchError }}</p>
+              <p v-else-if="musicSearchHint" class="music-search-feedback">{{ musicSearchHint }}</p>
+              <div v-if="musicSearchResults.length" class="music-search-results">
+                <article v-for="track in musicSearchResults" :key="track.sourceId" class="music-search-result">
+                  <div class="search-cover">
+                    <img v-if="track.coverUrl" :src="track.coverUrl" alt="" referrerpolicy="no-referrer" />
+                    <span v-else>♪</span>
+                  </div>
+                  <div class="search-track-meta">
+                    <strong :title="track.name">{{ track.name }}</strong>
+                    <span :title="track.artist || '未知歌手'">{{ track.artist || '未知歌手' }}</span>
+                    <small :title="track.album">{{ track.album || '未知专辑' }} · {{ formatDurationMs(track.durationMs) }}</small>
+                  </div>
+                  <button
+                    type="button"
+                    class="import-song-btn"
+                    :class="{ added: isSourceAdded(track.sourceId) }"
+                    :disabled="isSourceAdded(track.sourceId) || importingSourceId === track.sourceId || busy || draft.home.music.playlist.length >= 20"
+                    @click="importMusic(track)"
+                  >{{ isSourceAdded(track.sourceId) ? '已添加' : importingSourceId === track.sourceId ? '导入中…' : '导入到 R2' }}</button>
+                </article>
+              </div>
+            </section>
+
+            <p v-if="!draft.home.music.playlist.length" class="music-empty">暂无歌曲。可从小琳音乐站导入，或手动上传本地音频。</p>
 
             <div class="music-track-list">
               <section v-for="(song, index) in draft.home.music.playlist" :key="song.id" class="music-track-card">
                 <div class="music-track-head">
                   <span class="music-track-index">{{ String(index + 1).padStart(2, '0') }}</span>
+                  <span class="music-source-badge" :class="song.sourceType === 'xiaolin' ? 'xiaolin' : 'manual'">
+                    {{ song.sourceType === 'xiaolin' ? '小琳音乐站' : '手动上传' }}
+                  </span>
                   <label class="music-track-state"><input v-model="song.enabled" type="checkbox" /> 在播放器中展示</label>
                   <div class="music-track-actions">
                     <button type="button" :disabled="index === 0" :aria-label="`${song.name || '歌曲'}上移`" @click="moveSong(index, -1)">↑</button>
@@ -190,8 +232,9 @@
                   </div>
                 </div>
                 <div class="form-grid music-track-fields">
-                  <label>歌曲名<input v-model="song.name" maxlength="100" /></label>
-                  <label>歌手（可选）<input v-model="song.artist" maxlength="100" /></label>
+                  <label>歌曲名<input v-model="song.name" maxlength="200" /></label>
+                  <label>歌手（可选）<input v-model="song.artist" maxlength="300" /></label>
+                  <label class="wide">专辑（可选）<input v-model="song.album" maxlength="200" /></label>
                   <div class="music-source-field wide">
                     <span>R2 音频</span>
                     <div class="upload-row">
@@ -206,6 +249,36 @@
                           :disabled="busy"
                           @change="uploadSong($event, song)"
                         />
+                      </label>
+                    </div>
+                  </div>
+                  <div class="music-source-field">
+                    <span>封面 / 头像</span>
+                    <div class="music-visual-upload">
+                      <div class="music-cover-preview">
+                        <img v-if="songCover(song)" :src="songCover(song)" alt="歌曲封面预览" />
+                        <span v-else>♪</span>
+                      </div>
+                      <div class="music-asset-copy">
+                        <strong>{{ song.coverUrl ? '已保存到 R2' : song.artistAvatarUrl ? '已导入歌手头像' : '未设置' }}</strong>
+                        <small>{{ song.sourceType === 'xiaolin' && song.durationMs ? formatDurationMs(song.durationMs) : 'PNG / JPEG / WebP / GIF' }}</small>
+                      </div>
+                      <label class="upload-btn compact-upload" :class="{ disabled: busy }">
+                        <span>{{ song.coverUrl ? '替换' : '上传' }}</span>
+                        <input class="file-input-overlay" type="file" accept="image/png,image/jpeg,image/webp,image/gif" :disabled="busy" @change="uploadSongImage($event, song)" />
+                      </label>
+                    </div>
+                  </div>
+                  <div class="music-source-field">
+                    <span>歌词</span>
+                    <div class="music-lyric-upload">
+                      <div class="music-asset-copy">
+                        <strong>{{ song.lyricUrl ? '已保存到 R2' : '未设置' }}</strong>
+                        <small>{{ song.lyricUrl ? musicSourceName(song.lyricUrl) : 'UTF-8 LRC / TXT，最大 256 KB' }}</small>
+                      </div>
+                      <label class="upload-btn compact-upload" :class="{ disabled: busy }">
+                        <span>{{ song.lyricUrl ? '替换' : '上传' }}</span>
+                        <input class="file-input-overlay" type="file" accept=".lrc,.txt,text/plain" :disabled="busy" @change="uploadSongLyric($event, song)" />
                       </label>
                     </div>
                   </div>
@@ -261,6 +334,13 @@ const error = ref('')
 const status = ref('修改后将同步到 Cloudflare KV')
 const saveState = ref('idle')
 const contactInputs = ref([])
+const musicSearchQuery = ref('')
+const musicSearchResults = ref([])
+const musicSearching = ref(false)
+const musicSearchError = ref('')
+const musicSearchHint = ref('')
+const importingSourceId = ref('')
+let musicSearchController = null
 const isLocal = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname)
 
 const clone = (value) => JSON.parse(JSON.stringify(value))
@@ -273,6 +353,10 @@ const defaultFooter = {
   uiCreditText: 'UI based on Perfect Home',
   uiCreditUrl: 'https://github.com/327261086/perfect-home',
 }
+const normalizeDraftSong = (song) => ({
+  album: '', coverUrl: '', artistAvatarUrl: '', lyricUrl: '', durationMs: 0,
+  sourceType: 'manual', sourceId: '', enabled: true, ...song,
+})
 const draft = reactive({
   profile: initialProfile, projects: clone(store.config?.projects || []),
   home: {
@@ -283,7 +367,7 @@ const draft = reactive({
     },
     announcement: clone(store.config?.announcement || {}),
     footer: { ...defaultFooter, ...clone(store.config?.footer || {}) },
-    music: { playlist: clone(store.config?.music?.playlist || []) },
+    music: { playlist: clone(store.config?.music?.playlist || []).map(normalizeDraftSong) },
   },
 })
 const activeProject = computed(() => draft.projects[projectIndex.value] || null)
@@ -303,6 +387,57 @@ const request = async (url, options = {}) => {
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(data.error || `请求失败（${response.status}）`)
   return data
+}
+const formatDurationMs = (milliseconds) => {
+  const seconds = Math.max(0, Math.round((Number(milliseconds) || 0) / 1000))
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
+const songCover = (song) => song.coverUrl || song.artistAvatarUrl || ''
+const isSourceAdded = (sourceId) => draft.home.music.playlist.some((song) => song.sourceType === 'xiaolin' && song.sourceId === String(sourceId))
+const searchMusic = async () => {
+  const query = musicSearchQuery.value.trim()
+  if (!query) return
+  musicSearchController?.abort()
+  musicSearchController = new AbortController()
+  musicSearching.value = true
+  musicSearchError.value = ''
+  musicSearchHint.value = ''
+  try {
+    const data = await request(`/api/admin/music/search?q=${encodeURIComponent(query)}&limit=10`, { signal: musicSearchController.signal })
+    musicSearchResults.value = Array.isArray(data.tracks) ? data.tracks : []
+    musicSearchHint.value = musicSearchResults.value.length ? `找到 ${musicSearchResults.value.length} 首歌曲` : '没有找到匹配的歌曲，换个关键词试试'
+  } catch (cause) {
+    if (cause.name !== 'AbortError') {
+      musicSearchResults.value = []
+      musicSearchError.value = cause.message
+    }
+  } finally {
+    musicSearching.value = false
+  }
+}
+const importMusic = async (track) => {
+  if (isSourceAdded(track.sourceId)) return
+  if (draft.home.music.playlist.length >= 20) {
+    status.value = '歌曲不能超过 20 首'; saveState.value = 'error'; return
+  }
+  importingSourceId.value = String(track.sourceId)
+  busy.value = true
+  saveState.value = 'idle'
+  status.value = `正在完整导入《${track.name}》到 R2…`
+  try {
+    const data = await request('/api/admin/music/import', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId: String(track.sourceId) }),
+    })
+    if (!data.track) throw new Error('音源导入接口未返回歌曲信息')
+    draft.home.music.playlist.push(normalizeDraftSong(data.track))
+    status.value = `《${data.track.name}》已导入音频、封面和歌词，点击保存后更新主页歌单`
+  } catch (cause) {
+    status.value = cause.message
+    saveState.value = 'error'
+  } finally {
+    importingSourceId.value = ''
+    busy.value = false
+  }
 }
 const unlock = async () => {
   if (!passwordInput.value) { error.value = '请输入管理密码'; return }
@@ -412,15 +547,49 @@ const uploadSong = async (event, song = null) => {
       song.url = data.url
       if (!song.name) song.name = trackNameFromFile(file.name)
     } else {
-      draft.home.music.playlist.push({
+      draft.home.music.playlist.push(normalizeDraftSong({
         id: `track-${crypto.randomUUID()}`,
         name: trackNameFromFile(file.name),
         artist: '',
         url: data.url,
-        enabled: true,
-      })
+      }))
     }
     status.value = '音频已上传到 R2，点击保存后更新主页歌单'
+  } catch (cause) { status.value = cause.message; saveState.value = 'error' }
+  finally { busy.value = false; event.target.value = '' }
+}
+const uploadSongImage = async (event, song) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  if (file.size > 5 * 1024 * 1024) {
+    status.value = '封面不能超过 5 MB'; saveState.value = 'error'; event.target.value = ''; return
+  }
+  busy.value = true; saveState.value = 'idle'; status.value = `正在上传 ${file.name} 到 R2…`
+  try {
+    const data = await request('/api/admin/music/image', {
+      method: 'POST', headers: { 'Content-Type': file.type, 'X-File-Name': encodeURIComponent(file.name) }, body: file,
+    })
+    song.coverUrl = data.url
+    status.value = '封面已上传到 R2，点击保存后生效'
+  } catch (cause) { status.value = cause.message; saveState.value = 'error' }
+  finally { busy.value = false; event.target.value = '' }
+}
+const uploadSongLyric = async (event, song) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  if (file.size > 256 * 1024) {
+    status.value = '歌词不能超过 256 KB'; saveState.value = 'error'; event.target.value = ''; return
+  }
+  if (!/\.(lrc|txt)$/i.test(file.name)) {
+    status.value = '歌词只支持 LRC 或 TXT 文件'; saveState.value = 'error'; event.target.value = ''; return
+  }
+  busy.value = true; saveState.value = 'idle'; status.value = `正在上传 ${file.name} 到 R2…`
+  try {
+    const data = await request('/api/admin/music/lyric', {
+      method: 'POST', headers: { 'Content-Type': 'text/plain; charset=utf-8', 'X-File-Name': encodeURIComponent(file.name) }, body: file,
+    })
+    song.lyricUrl = data.url
+    status.value = '歌词已上传到 R2，点击保存后生效'
   } catch (cause) { status.value = cause.message; saveState.value = 'error' }
   finally { busy.value = false; event.target.value = '' }
 }
@@ -472,7 +641,7 @@ const save = async () => {
 const enableContextMenu = () => { document.oncontextmenu = null; document.body.style.userSelect = 'auto' }
 const restoreContextMenu = () => { if (store.config?.security?.disableRightClick) document.oncontextmenu = () => false }
 onMounted(() => { enableContextMenu(); restoreSession() })
-onUnmounted(restoreContextMenu)
+onUnmounted(() => { musicSearchController?.abort(); restoreContextMenu() })
 </script>
 
 <style lang="scss" scoped>
@@ -490,10 +659,13 @@ onUnmounted(restoreContextMenu)
 .switches { display: flex!important; align-items: center; gap: 20px!important; }.switches label { display: flex; align-items: center; gap: 7px; }.switches input { width: auto; }.upload-row { display: flex; gap: 8px; }.upload-btn { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 10px 14px; border: 0; border-radius: 8px; color: var(--theme-primary); background: rgba(0,212,255,.12); cursor: pointer; font: inherit; overflow: hidden; }.upload-btn:focus-within { outline: 2px solid var(--theme-primary); outline-offset: 2px; }.upload-btn.disabled { opacity: .5; cursor: not-allowed; }.file-input-overlay { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; opacity: 0; cursor: pointer; }.file-input-overlay:disabled { cursor: not-allowed; }
 .details-editor { display: grid; gap: 10px; }.section-title { display: flex; align-items: center; justify-content: space-between; color: rgba(255,255,255,.65); font-size: .8rem; }.detail-row { display: grid; grid-template-columns: 150px 1fr auto; gap: 8px; align-items: start; }.mini-btn,.detail-remove { padding: 7px 10px; border: 1px solid rgba(0,212,255,.25); border-radius: 7px; color: var(--theme-primary); background: rgba(0,212,255,.1); cursor: pointer; }.detail-remove { color: #ff7199; border-color: rgba(255,113,153,.25); background: rgba(255,113,153,.1); }.empty-hint { margin: 0; color: rgba(255,255,255,.4); font-size: .8rem; }
 .music-editor { display: grid; gap: 14px; }.music-editor-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-bottom: 4px; }.music-editor-header>div { display: grid; gap: 5px; }.music-editor-header strong { color: rgba(255,255,255,.9); font-size: .92rem; }.music-editor-header p { margin: 0; color: rgba(255,255,255,.48); font-size: .74rem; }.music-upload-btn { align-self: center; white-space: nowrap; }.music-empty { margin: 8px 0 0; padding: 32px 18px; border: 1px dashed rgba(255,255,255,.14); border-radius: 12px; color: rgba(255,255,255,.45); text-align: center; font-size: .8rem; }.music-track-list { display: grid; gap: 12px; }.music-track-card { padding: 14px; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; background: rgba(255,255,255,.025); }.music-track-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }.music-track-index { color: var(--theme-primary); font-size: .72rem; font-weight: 750; font-variant-numeric: tabular-nums; }.music-track-state { display: flex; align-items: center; gap: 7px; color: rgba(255,255,255,.65); font-size: .76rem; }.music-track-state input { width: auto; }.music-track-actions { display: flex; gap: 6px; margin-left: auto; }.music-track-actions button { min-width: 30px; height: 30px; padding: 0 8px; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; color: rgba(255,255,255,.7); background: rgba(255,255,255,.06); cursor: pointer; }.music-track-actions button:hover:not(:disabled) { color: var(--theme-primary); border-color: rgba(0,212,255,.35); }.music-track-actions .remove-song { color: #ff7199; border-color: rgba(255,113,153,.22); }.music-track-fields { gap: 10px 12px; }.music-source-field { display: grid; gap: 7px; color: rgba(255,255,255,.65); font-size: .8rem; }.source-input { color: rgba(255,255,255,.48); text-overflow: ellipsis; }
+.music-search-panel { display: grid; gap: 10px; padding: 14px; border: 1px solid rgba(0,212,255,.17); border-radius: 13px; background: linear-gradient(135deg,rgba(0,212,255,.07),rgba(124,77,255,.045)); }.music-search-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }.music-search-heading>div { min-width: 0; display: grid; gap: 4px; }.music-search-heading strong { color: rgba(255,255,255,.9); font-size: .84rem; }.music-search-heading span { color: rgba(255,255,255,.48); font-size: .7rem; line-height: 1.5; }.music-search-heading a { flex: none; color: var(--theme-primary); font-size: .7rem; text-decoration: none; }.music-search-form { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 8px; }.music-search-btn,.import-song-btn { border: 1px solid rgba(0,212,255,.28); border-radius: 8px; color: var(--theme-primary); background: rgba(0,212,255,.1); cursor: pointer; }.music-search-btn { min-width: 78px; padding: 0 15px; }.music-rights-note,.music-search-feedback { margin: 0; color: rgba(255,255,255,.4); font-size: .68rem; }.music-rights-note { color: rgba(255,200,112,.7); }.music-search-feedback.error { color: #ff7199; }.music-search-results { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }.music-search-result { min-width: 0; display: grid; grid-template-columns: 44px minmax(0,1fr) auto; align-items: center; gap: 9px; padding: 9px; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; background: rgba(7,11,25,.42); }.search-cover,.music-cover-preview { display: grid; place-items: center; overflow: hidden; color: rgba(255,255,255,.55); background: var(--theme-gradient); }.search-cover { width: 44px; height: 44px; border-radius: 10px; }.search-cover img,.music-cover-preview img { width: 100%; height: 100%; object-fit: cover; }.search-track-meta { min-width: 0; display: grid; gap: 3px; }.search-track-meta strong,.search-track-meta span,.search-track-meta small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.search-track-meta strong { color: rgba(255,255,255,.88); font-size: .76rem; }.search-track-meta span { color: rgba(255,255,255,.6); font-size: .68rem; }.search-track-meta small { color: rgba(255,255,255,.36); font-size: .62rem; }.import-song-btn { min-width: 74px; padding: 8px 9px; font-size: .68rem; white-space: nowrap; }.import-song-btn.added { color: rgba(255,255,255,.45); border-color: rgba(255,255,255,.1); background: rgba(255,255,255,.05); }
+.music-source-badge { padding: 4px 7px; border-radius: 99px; font-size: .62rem; white-space: nowrap; }.music-source-badge.xiaolin { color: var(--theme-primary); background: rgba(0,212,255,.1); }.music-source-badge.manual { color: rgba(255,255,255,.48); background: rgba(255,255,255,.07); }.music-visual-upload,.music-lyric-upload { min-width: 0; display: flex; align-items: center; gap: 9px; padding: 8px; border: 1px solid rgba(255,255,255,.08); border-radius: 9px; background: rgba(0,0,0,.16); }.music-cover-preview { width: 40px; height: 40px; flex: none; border-radius: 9px; }.music-asset-copy { min-width: 0; flex: 1; display: grid; gap: 3px; }.music-asset-copy strong,.music-asset-copy small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.music-asset-copy strong { color: rgba(255,255,255,.68); font-size: .7rem; font-weight: 600; }.music-asset-copy small { color: rgba(255,255,255,.35); font-size: .61rem; }.compact-upload { padding: 8px 10px; font-size: .68rem; }
 .footer-settings-title { margin-top: 4px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.08); }.footer-settings-title>div { display: grid; gap: 3px; }.footer-settings-title small { color: rgba(255,255,255,.42); font-size: .7rem; font-weight: 400; }
 .contacts-editor { display: grid; gap: 12px; padding-top: 8px; }.contacts-title { padding-bottom: 2px; }.contacts-title>div { display: grid; gap: 3px; }.contacts-title small { color: rgba(255,255,255,.42); font-size: .7rem; font-weight: 400; }.enabled-count { color: rgba(255,255,255,.48); font-size: .7rem; }
 .contact-preset-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }.contact-preset { min-width: 0; padding: 12px; border: 1px solid rgba(255,255,255,.09); border-radius: 12px; background: rgba(255,255,255,.025); transition: border-color .2s ease,background .2s ease,box-shadow .2s ease; }.contact-preset.enabled { border-color: color-mix(in srgb,var(--contact-color) 42%,rgba(255,255,255,.1)); background: linear-gradient(135deg,color-mix(in srgb,var(--contact-color) 10%,transparent),rgba(255,255,255,.025)); box-shadow: inset 0 1px 0 rgba(255,255,255,.035); }.contact-preset-head { display: grid; grid-template-columns: 30px 1fr auto auto; align-items: center; gap: 9px; }.contact-brand-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; color: var(--contact-color); background: color-mix(in srgb,var(--contact-color) 13%,rgba(255,255,255,.04)); }.contact-brand-icon svg { width: 17px; height: 17px; }.contact-brand-name { color: rgba(255,255,255,.86); font-size: .78rem; font-weight: 650; }.contact-order-actions { display: flex; gap: 4px; }.contact-order-actions button { width: 26px; height: 26px; padding: 0; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; color: rgba(255,255,255,.68); background: rgba(255,255,255,.06); cursor: pointer; }.contact-order-actions button:hover:not(:disabled) { color: var(--theme-primary); border-color: color-mix(in srgb,var(--theme-primary) 45%,transparent); background: color-mix(in srgb,var(--theme-primary) 10%,transparent); }.contact-order-actions button:disabled { opacity: .25; cursor: default; }.contact-toggle { width: 36px; height: 20px; padding: 2px; border: 0; border-radius: 99px; background: rgba(255,255,255,.14); cursor: pointer; transition: background .2s ease; }.contact-toggle span { display: block; width: 16px; height: 16px; border-radius: 50%; background: rgba(255,255,255,.72); transition: transform .2s ease,background .2s ease; }.contact-toggle[aria-checked="true"] { background: var(--theme-gradient); }.contact-toggle[aria-checked="true"] span { transform: translateX(16px); background: #fff; }.contact-preset-body { min-height: 40px; display: flex; align-items: center; gap: 9px; margin-top: 11px; }.contact-preset-body>input { height: 38px; font-size: .74rem; }.contact-upload { flex: none; padding: 9px 11px; border-radius: 8px; color: var(--contact-color); background: color-mix(in srgb,var(--contact-color) 12%,transparent); font-size: .72rem; cursor: pointer; }.contact-upload input { display: none; }.contact-empty { color: rgba(255,255,255,.35); font-size: .68rem; }.contact-qr-preview { width: 40px; height: 40px; flex: none; padding: 3px; box-sizing: border-box; object-fit: contain; background: #fff; border-radius: 8px; }
 .primary-btn,.secondary-btn,.danger-btn { padding: 9px 18px; border: 0; border-radius: 8px; color: #fff; cursor: pointer; }.primary-btn { background: var(--theme-gradient); }.secondary-btn { margin-right: 8px; background: rgba(255,255,255,.1); }.danger-btn { margin-top: 18px; background: rgba(255,50,100,.24); }button:disabled { opacity: .55; cursor: wait; }.message { min-height: 1em; color: rgba(255,255,255,.6); font-size: .82rem; }.message.error { color: #ff7199; }
 .footer-actions { display: flex; align-items: center; gap: 8px; }.footer-actions .secondary-btn { margin-right: 0; }.sync-btn { margin-right: 6px; padding: 9px 13px; border: 1px solid rgba(0,212,255,.28); border-radius: 8px; color: var(--theme-primary); background: rgba(0,212,255,.09); cursor: pointer; }
-@media (max-width:700px) { .config-editor-overlay { padding: 8px; }.config-editor { width: 100%; height: 94vh; }.form-grid { grid-template-columns: 1fr; }.wide { grid-column: auto; }.projects-tab { display: block; }.project-list { flex-direction: row; overflow-x: auto; margin-bottom: 16px; }.detail-row { grid-template-columns: 1fr; }.contact-preset-grid { grid-template-columns: 1fr; }.music-editor-header { align-items: flex-start; flex-direction: column; }.music-track-head { flex-wrap: wrap; }.music-track-actions { width: 100%; margin-left: 0; }.editor-footer { align-items: flex-start; flex-direction: column; }.footer-actions { width: 100%; flex-wrap: wrap; }.sync-btn { margin-right: auto; } }
+@media (max-width:700px) { .config-editor-overlay { padding: 8px; }.config-editor { width: 100%; height: 94vh; }.form-grid { grid-template-columns: 1fr; }.wide { grid-column: auto; }.projects-tab { display: block; }.project-list { flex-direction: row; overflow-x: auto; margin-bottom: 16px; }.detail-row { grid-template-columns: 1fr; }.contact-preset-grid,.music-search-results { grid-template-columns: 1fr; }.music-editor-header,.music-search-heading { align-items: flex-start; flex-direction: column; }.music-search-heading a { align-self: flex-start; }.music-track-head { flex-wrap: wrap; }.music-track-actions { width: 100%; margin-left: 0; }.editor-footer { align-items: flex-start; flex-direction: column; }.footer-actions { width: 100%; flex-wrap: wrap; }.sync-btn { margin-right: auto; } }
+@media (max-width:460px) { .music-search-result { grid-template-columns: 40px minmax(0,1fr); }.search-cover { width: 40px; height: 40px; }.import-song-btn { grid-column: 1/-1; width: 100%; }.music-search-form { grid-template-columns: 1fr; }.music-search-btn { min-height: 40px; }.music-visual-upload,.music-lyric-upload { flex-wrap: wrap; }.compact-upload { margin-left: auto; } }
 </style>

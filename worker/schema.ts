@@ -62,7 +62,14 @@ export type MusicTrack = {
   id: string;
   name: string;
   artist: string;
+  album: string;
   url: string;
+  coverUrl: string;
+  artistAvatarUrl: string;
+  lyricUrl: string;
+  durationMs: number;
+  sourceType: "manual" | "xiaolin";
+  sourceId: string;
   enabled: boolean;
 };
 
@@ -136,8 +143,9 @@ function normalizeFooter(value: unknown): HomeConfig["footer"] {
   };
 }
 
-function musicMediaUrl(value: unknown, field: string): string {
-  const normalized = stringValue(value ?? "", field, 500, true);
+function musicMediaPath(value: unknown, field: string, required = false): string {
+  const normalized = stringValue(value ?? "", field, 500, required);
+  if (!normalized) return "";
   let pathname = normalized;
   if (!normalized.startsWith("/")) {
     let parsed: URL;
@@ -149,10 +157,36 @@ function musicMediaUrl(value: unknown, field: string): string {
     }
     pathname = parsed.pathname;
   }
-  if (!/^\/media\/music\/\d{4}\/(0[1-9]|1[0-2])\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(mp3|m4a|aac|ogg|wav|webm|flac)$/.test(pathname)) {
+  if (!/^\/media\/music\/\d{4}\/(0[1-9]|1[0-2])\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]+$/.test(pathname)) {
     throw new Error(`${field} 必须使用在线编辑上传到 R2`);
   }
   return pathname;
+}
+
+function musicAudioUrl(value: unknown, field: string): string {
+  const pathname = musicMediaPath(value, field, true);
+  if (!/\.(mp3|m4a|aac|ogg|wav|webm|flac)$/.test(pathname)) throw new Error(`${field} 不是支持的音频格式`);
+  return pathname;
+}
+
+function musicImageUrl(value: unknown, field: string): string {
+  const pathname = musicMediaPath(value, field);
+  if (pathname && !/\.(png|jpg|webp|gif)$/.test(pathname)) throw new Error(`${field} 不是支持的图片格式`);
+  return pathname;
+}
+
+function musicLyricUrl(value: unknown, field: string): string {
+  const pathname = musicMediaPath(value, field);
+  if (pathname && !/\.(lrc|txt|json)$/.test(pathname)) throw new Error(`${field} 不是支持的歌词格式`);
+  return pathname;
+}
+
+function durationValue(value: unknown, field: string): number {
+  if (value === undefined || value === null || value === "") return 0;
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || value > 24 * 60 * 60 * 1_000) {
+    throw new Error(`${field} 必须是有效的毫秒数`);
+  }
+  return value;
 }
 
 function normalizeMusic(value: unknown): HomeConfig["music"] {
@@ -168,17 +202,32 @@ function normalizeMusic(value: unknown): HomeConfig["music"] {
     const track = item as Record<string, unknown>;
     const id = stringValue(track.id ?? `track-${index + 1}`, `第 ${index + 1} 首歌曲 ID`, 80, true);
     if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) throw new Error(`歌曲 ID“${id}”只能包含小写字母、数字和连字符`);
-    const url = musicMediaUrl(track.url ?? "", `第 ${index + 1} 首歌曲地址`);
+    const sourceType = track.sourceType === undefined ? "manual" : stringValue(track.sourceType, `第 ${index + 1} 首歌曲来源`, 20, true);
+    if (!new Set(["manual", "xiaolin"]).has(sourceType)) throw new Error(`第 ${index + 1} 首歌曲来源无效`);
+    const sourceId = sourceType === "xiaolin"
+      ? stringValue(track.sourceId ?? "", `第 ${index + 1} 首歌曲来源 ID`, 24, true)
+      : "";
+    if (sourceType === "xiaolin" && !/^\d+$/.test(sourceId)) throw new Error(`第 ${index + 1} 首歌曲来源 ID 无效`);
+    const url = musicAudioUrl(track.url ?? "", `第 ${index + 1} 首歌曲地址`);
     return {
       id,
-      name: stringValue(track.name, `第 ${index + 1} 首歌曲名称`, 100, true),
-      artist: stringValue(track.artist ?? "", `第 ${index + 1} 首歌曲歌手`, 100),
+      name: stringValue(track.name, `第 ${index + 1} 首歌曲名称`, 200, true),
+      artist: stringValue(track.artist ?? "", `第 ${index + 1} 首歌曲歌手`, 300),
+      album: stringValue(track.album ?? "", `第 ${index + 1} 首歌曲专辑`, 200),
       url,
+      coverUrl: musicImageUrl(track.coverUrl ?? "", `第 ${index + 1} 首歌曲封面`),
+      artistAvatarUrl: musicImageUrl(track.artistAvatarUrl ?? "", `第 ${index + 1} 首歌曲歌手头像`),
+      lyricUrl: musicLyricUrl(track.lyricUrl ?? "", `第 ${index + 1} 首歌曲歌词`),
+      durationMs: durationValue(track.durationMs, `第 ${index + 1} 首歌曲时长`),
+      sourceType: sourceType as MusicTrack["sourceType"],
+      sourceId,
       enabled: track.enabled !== false,
     };
   });
 
   if (new Set(tracks.map((track) => track.id)).size !== tracks.length) throw new Error("歌曲 ID 不能重复");
+  const sourceIds = tracks.filter((track) => track.sourceType === "xiaolin").map((track) => track.sourceId);
+  if (new Set(sourceIds).size !== sourceIds.length) throw new Error("不能重复添加同一首小琳音乐站歌曲");
   return { playlist: tracks };
 }
 

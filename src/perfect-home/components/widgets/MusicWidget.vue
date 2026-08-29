@@ -22,10 +22,16 @@
 
     <template v-if="currentSong">
       <div class="player-main">
-        <div class="music-disc" :class="{ playing: isPlaying }" aria-hidden="true"><span>♪</span></div>
-        <div class="track-meta">
-          <strong :title="currentSong.name">{{ currentSong.name }}</strong>
-          <span :title="currentSong.artist || '未知歌手'">{{ currentSong.artist || '未知歌手' }}</span>
+        <div class="track-summary">
+          <div class="music-disc" :class="{ playing: isPlaying }" aria-hidden="true">
+            <img v-if="currentCover" :src="currentCover" alt="" />
+            <span v-else>♪</span>
+          </div>
+          <div class="track-meta">
+            <strong :title="currentSong.name">{{ currentSong.name }}</strong>
+            <span :title="currentSong.artist || '未知歌手'">{{ currentSong.artist || '未知歌手' }}</span>
+            <small v-if="currentLyric" :title="lyricTitle">{{ currentLyric }}</small>
+          </div>
         </div>
         <div class="player-controls">
           <button type="button" aria-label="上一首" title="上一首" :disabled="playlist.length < 2" @click="previousSong">‹</button>
@@ -70,6 +76,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { mainStore } from '../../store'
+import { lyricAt, parseLyricPayload } from '../../utils/music-lyrics'
 
 const store = mainStore()
 const audioElement = ref(null)
@@ -80,11 +87,18 @@ const isPlaying = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const liveMessage = ref('')
+const lyricLines = ref([])
+const translatedLyricLines = ref([])
+let lyricController = null
 let resumeAfterSourceChange = false
 let sourceChangeToken = 0
 
 const playlist = computed(() => (store.config?.music?.playlist || []).filter((song) => song.enabled !== false && song.url))
 const currentSong = computed(() => playlist.value[currentIndex.value] || null)
+const currentCover = computed(() => currentSong.value?.coverUrl || currentSong.value?.artistAvatarUrl || '')
+const currentLyric = computed(() => lyricAt(lyricLines.value, currentTime.value))
+const translatedLyric = computed(() => lyricAt(translatedLyricLines.value, currentTime.value))
+const lyricTitle = computed(() => [currentLyric.value, translatedLyric.value].filter(Boolean).join('\n'))
 const progressPercent = computed(() => duration.value > 0 ? Math.min(100, currentTime.value / duration.value * 100) : 0)
 const playerStatus = computed(() => {
   if (!currentSong.value) return '待配置'
@@ -195,6 +209,28 @@ watch(() => currentSong.value?.url, async (url) => {
   if (shouldPlay) play()
 }, { immediate: true })
 
+watch(() => currentSong.value?.lyricUrl, async (url) => {
+  lyricController?.abort()
+  lyricLines.value = []
+  translatedLyricLines.value = []
+  if (!url) return
+  const controller = new AbortController()
+  lyricController = controller
+  try {
+    const response = await fetch(url, { credentials: 'same-origin', signal: controller.signal })
+    if (!response.ok) throw new Error(`歌词加载失败（${response.status}）`)
+    const lyrics = parseLyricPayload(await response.text())
+    if (controller.signal.aborted) return
+    lyricLines.value = lyrics.lines
+    translatedLyricLines.value = lyrics.translatedLines
+  } catch (error) {
+    if (error?.name !== 'AbortError') {
+      lyricLines.value = []
+      translatedLyricLines.value = []
+    }
+  }
+}, { immediate: true })
+
 watch(playlist, (songs) => {
   if (!songs.length) currentIndex.value = 0
   else if (currentIndex.value >= songs.length) currentIndex.value = 0
@@ -206,6 +242,7 @@ watch(() => store.musicVolume, (volume) => {
 
 onBeforeUnmount(() => {
   sourceChangeToken += 1
+  lyricController?.abort()
   if (!audioElement.value) return
   audioElement.value.pause()
   audioElement.value.removeAttribute('src')
@@ -225,15 +262,16 @@ onBeforeUnmount(() => {
 }
 .music-widget:hover { transform: translateY(-2px); border-color: color-mix(in srgb,var(--theme-primary) 55%,transparent); box-shadow: 0 8px 24px var(--theme-glow); }
 audio { display: none; }
-.widget-header { display: flex; align-items: center; gap: 7px; margin-bottom: 9px; }
+.widget-header { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; }
 .widget-icon { font-size: 15px; }.widget-title { color: var(--theme-primary); font-size: .84rem; font-weight: 700; }
 .player-status { margin-left: auto; color: rgba(255,255,255,.42); font-size: .66rem; font-variant-numeric: tabular-nums; }.player-status.error { color: #ff7199; }
-.player-main { display: grid; grid-template-columns: 42px minmax(0,1fr) auto; align-items: center; gap: 10px; }
-.music-disc { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: radial-gradient(circle at center,rgba(10,16,31,.95) 0 18%,transparent 19%),var(--theme-gradient); box-shadow: 0 0 18px color-mix(in srgb,var(--theme-primary) 26%,transparent); }.music-disc span { transform: translateX(1px); font-size: 16px; }
+.player-main { display: grid; gap: 4px; }
+.track-summary { min-width: 0; display: grid; grid-template-columns: 42px minmax(0,1fr); align-items: center; gap: 10px; }
+.music-disc { position: relative; width: 42px; height: 42px; display: grid; place-items: center; overflow: hidden; border-radius: 50%; color: #fff; background: radial-gradient(circle at center,rgba(10,16,31,.95) 0 18%,transparent 19%),var(--theme-gradient); box-shadow: 0 0 18px color-mix(in srgb,var(--theme-primary) 26%,transparent); }.music-disc img { width: 100%; height: 100%; object-fit: cover; }.music-disc:has(img)::after { position: absolute; inset: 39%; content: ''; border: 1px solid rgba(255,255,255,.45); border-radius: 50%; background: rgba(9,13,27,.9); box-shadow: 0 0 0 2px rgba(0,0,0,.16); }.music-disc span { transform: translateX(1px); font-size: 16px; }
 .music-disc.playing { animation: disc-spin 7s linear infinite; }
-.track-meta { min-width: 0; display: grid; gap: 3px; }.track-meta strong,.track-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.track-meta strong { color: rgba(255,255,255,.92); font-size: .8rem; }.track-meta span { color: rgba(255,255,255,.45); font-size: .67rem; }
-.player-controls { display: flex; align-items: center; gap: 5px; }.player-controls button { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; color: rgba(255,255,255,.82); background: rgba(255,255,255,.065); cursor: pointer; font-size: 17px; line-height: 1; transition: color .15s ease,border-color .15s ease,background .15s ease,transform .15s ease; }.player-controls button:hover:not(:disabled),.player-controls button:focus-visible { color: #fff; border-color: var(--theme-primary); background: color-mix(in srgb,var(--theme-primary) 18%,transparent); outline: none; }.player-controls button:active:not(:disabled) { transform: scale(.94); }.player-controls button:disabled { opacity: .28; cursor: default; }.player-controls .play-button { color: #fff; border-color: transparent; background: var(--theme-gradient); font-size: 12px; }
-.progress-row { display: grid; grid-template-columns: 29px minmax(0,1fr) 29px; align-items: center; gap: 6px; margin-top: 10px; }.progress-row span { color: rgba(255,255,255,.38); font-size: .58rem; font-variant-numeric: tabular-nums; }.progress-row span:last-child { text-align: right; }.progress-row input { width: 100%; height: 18px; margin: 0; padding: 0; border: 0; border-radius: 0; appearance: none; background: transparent; cursor: pointer; }.progress-row input::-webkit-slider-runnable-track { height: 3px; border-radius: 99px; background: linear-gradient(to right,var(--theme-primary) 0 var(--played),rgba(255,255,255,.13) var(--played) 100%); }.progress-row input::-webkit-slider-thumb { width: 10px; height: 10px; margin-top: -3.5px; appearance: none; border: 2px solid #fff; border-radius: 50%; background: var(--theme-primary); }.progress-row input::-moz-range-track { height: 3px; border-radius: 99px; background: rgba(255,255,255,.13); }.progress-row input::-moz-range-progress { height: 3px; background: var(--theme-primary); }.progress-row input::-moz-range-thumb { width: 8px; height: 8px; border: 2px solid #fff; border-radius: 50%; background: var(--theme-primary); }.progress-row input:focus-visible { outline: 2px solid var(--theme-primary); outline-offset: 2px; }.progress-row input:disabled { opacity: .45; cursor: default; }
+.track-meta { min-width: 0; width: 100%; display: grid; gap: 2px; }.track-meta strong,.track-meta span,.track-meta small { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.track-meta strong { color: rgba(255,255,255,.92); font-size: .8rem; }.track-meta span { color: rgba(255,255,255,.45); font-size: .67rem; }.track-meta small { color: color-mix(in srgb,var(--theme-primary) 70%,rgba(255,255,255,.5)); font-size: .61rem; font-weight: 450; }
+.player-controls { width: max-content; min-width: 0; display: flex; align-items: center; justify-content: center; justify-self: center; gap: 5px; }.player-controls button { width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; color: rgba(255,255,255,.82); background: rgba(255,255,255,.065); cursor: pointer; font-size: 17px; line-height: 1; transition: color .15s ease,border-color .15s ease,background .15s ease,transform .15s ease; }.player-controls button:hover:not(:disabled),.player-controls button:focus-visible { color: #fff; border-color: var(--theme-primary); background: color-mix(in srgb,var(--theme-primary) 18%,transparent); outline: none; }.player-controls button:active:not(:disabled) { transform: scale(.94); }.player-controls button:disabled { opacity: .28; cursor: default; }.player-controls .play-button { color: #fff; border-color: transparent; background: var(--theme-gradient); font-size: 12px; }
+.progress-row { display: grid; grid-template-columns: 29px minmax(0,1fr) 29px; align-items: center; gap: 6px; margin-top: 4px; }.progress-row span { color: rgba(255,255,255,.38); font-size: .58rem; font-variant-numeric: tabular-nums; }.progress-row span:last-child { text-align: right; }.progress-row input { width: 100%; height: 18px; margin: 0; padding: 0; border: 0; border-radius: 0; appearance: none; background: transparent; cursor: pointer; }.progress-row input::-webkit-slider-runnable-track { height: 3px; border-radius: 99px; background: linear-gradient(to right,var(--theme-primary) 0 var(--played),rgba(255,255,255,.13) var(--played) 100%); }.progress-row input::-webkit-slider-thumb { width: 10px; height: 10px; margin-top: -3.5px; appearance: none; border: 2px solid #fff; border-radius: 50%; background: var(--theme-primary); }.progress-row input::-moz-range-track { height: 3px; border-radius: 99px; background: rgba(255,255,255,.13); }.progress-row input::-moz-range-progress { height: 3px; background: var(--theme-primary); }.progress-row input::-moz-range-thumb { width: 8px; height: 8px; border: 2px solid #fff; border-radius: 50%; background: var(--theme-primary); }.progress-row input:focus-visible { outline: 2px solid var(--theme-primary); outline-offset: 2px; }.progress-row input:disabled { opacity: .45; cursor: default; }
 .empty-player { min-height: 75px; display: grid; place-content: center; gap: 5px; color: rgba(255,255,255,.4); text-align: center; }.empty-player strong { color: rgba(255,255,255,.72); font-size: .8rem; }.empty-player span { font-size: .67rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 @keyframes disc-spin { to { transform: rotate(360deg); } }
@@ -243,14 +281,13 @@ audio { display: none; }
   .widget-header { flex: 0 0 auto; }
   .player-main,
   .progress-row {
-    width: min(100%, 216px);
+    width: min(100%, 240px);
     margin-inline: auto;
   }
   .player-main {
-    grid-template-columns: 40px minmax(0,1fr) auto;
-    gap: 8px;
     margin-top: auto;
   }
+  .track-summary { grid-template-columns: 40px minmax(0,1fr); }
   .music-disc { width: 40px; height: 40px; }
   .player-controls { gap: 4px; }
   .player-controls button { width: 30px; height: 30px; }
@@ -258,5 +295,17 @@ audio { display: none; }
   .progress-row { margin-bottom: auto; }
   .empty-player { flex: 1; min-height: 0; }
 }
-@media (max-width: 520px) { .player-controls button { width: 36px; height: 36px; }.player-main { grid-template-columns: 40px minmax(0,1fr) auto; gap: 8px; }.music-disc { width: 40px; height: 40px; } }
+@media (min-width: 901px) and (max-height: 640px) {
+  .music-widget { padding-block: 7px; }
+  .widget-header { margin-bottom: 2px; }
+  .player-main { gap: 1px; }
+  .track-summary { grid-template-columns: 32px minmax(0,1fr); gap: 7px; }
+  .music-disc { width: 32px; height: 32px; }
+  .track-meta { gap: 1px; }
+  .player-controls { justify-self: center; gap: 3px; }
+  .player-controls button { width: 26px; height: 26px; }
+  .player-controls .play-button { width: 28px; height: 28px; }
+  .progress-row { margin-top: 1px; }
+}
+@media (max-width: 520px) { .player-controls button { width: 36px; height: 36px; }.player-main { gap: 6px; }.track-summary { grid-template-columns: 40px minmax(0,1fr); gap: 10px; }.music-disc { width: 40px; height: 40px; } }
 </style>

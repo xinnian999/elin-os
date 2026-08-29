@@ -22,6 +22,12 @@
       "bucket_name": "elin-os-media"
     }
   ],
+  "services": [
+    {
+      "binding": "HYL_MUSIC",
+      "service": "hyl-music"
+    }
+  ],
   "observability": {
     "enabled": true,
     "logs": { "head_sampling_rate": 1 },

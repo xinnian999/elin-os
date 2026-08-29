@@ -40,7 +40,14 @@ test('normalizes and maps the R2-backed music playlist', async (t) => {
           id: 'track-one',
           name: '  First Song  ',
           artist: '  Elin  ',
+          album: '  First Album  ',
           url: '/media/music/2026/08/123e4567-e89b-12d3-a456-426614174000.mp3',
+          coverUrl: '/media/music/2026/08/223e4567-e89b-12d3-a456-426614174000.jpg',
+          artistAvatarUrl: '/media/music/2026/08/323e4567-e89b-12d3-a456-426614174000.webp',
+          lyricUrl: '/media/music/2026/08/423e4567-e89b-12d3-a456-426614174000.json',
+          durationMs: 243000,
+          sourceType: 'xiaolin',
+          sourceId: '1973665667',
           enabled: false,
         },
         {
@@ -55,8 +62,14 @@ test('normalizes and maps the R2-backed music playlist', async (t) => {
   })
   assert.equal(home.music.playlist[0].name, 'First Song')
   assert.equal(home.music.playlist[0].artist, 'Elin')
+  assert.equal(home.music.playlist[0].album, 'First Album')
+  assert.equal(home.music.playlist[0].coverUrl, '/media/music/2026/08/223e4567-e89b-12d3-a456-426614174000.jpg')
+  assert.equal(home.music.playlist[0].lyricUrl, '/media/music/2026/08/423e4567-e89b-12d3-a456-426614174000.json')
+  assert.equal(home.music.playlist[0].durationMs, 243000)
+  assert.equal(home.music.playlist[0].sourceType, 'xiaolin')
   assert.equal(home.music.playlist[0].enabled, false)
   assert.equal(home.music.playlist[1].url, '/media/music/2026/08/123e4567-e89b-12d3-a456-426614174001.m4a')
+  assert.equal(home.music.playlist[1].sourceType, 'manual')
 
   const config = makeConfig({ name: 'Elin', contacts: [] }, [], home)
   assert.deepEqual(Object.keys(config.music), ['playlist'])
@@ -90,5 +103,30 @@ test('normalizes and maps the R2-backed music playlist', async (t) => {
       },
     }),
     /歌曲 ID 不能重复/,
+  )
+  assert.throws(
+    () => normalizeHome({
+      ...baseHome,
+      music: {
+        playlist: [{
+          id: 'external-cover', name: 'External cover', artist: '',
+          url: '/media/music/2026/08/123e4567-e89b-12d3-a456-426614174005.mp3',
+          coverUrl: 'https://tracker.example/cover.jpg',
+        }],
+      },
+    }),
+    /必须使用在线编辑上传到 R2/,
+  )
+  assert.throws(
+    () => normalizeHome({
+      ...baseHome,
+      music: {
+        playlist: [
+          { id: 'source-one', name: 'One', artist: '', url: '/media/music/2026/08/123e4567-e89b-12d3-a456-426614174006.mp3', sourceType: 'xiaolin', sourceId: '123' },
+          { id: 'source-two', name: 'Two', artist: '', url: '/media/music/2026/08/123e4567-e89b-12d3-a456-426614174007.mp3', sourceType: 'xiaolin', sourceId: '123' },
+        ],
+      },
+    }),
+    /不能重复添加同一首/,
   )
 })

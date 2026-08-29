@@ -3,6 +3,19 @@ import defaultProfile from "../src/data/default-profile.json";
 import defaultHome from "../src/data/default-home.json";
 import { normalizeHome, normalizeProfile, normalizeProjects, parseGithubRepository } from "./schema";
 import { parseSingleByteRange } from "./media-range";
+import {
+  HYL_MUSIC_INTERNAL_ORIGIN,
+  HYL_MUSIC_PUBLIC_ORIGIN,
+  HYL_MUSIC_PROVIDER,
+  isSupportedAudioContentType,
+  parseHylArtistAvatar,
+  parseHylMusicAudio,
+  parseHylMusicDetail,
+  parseHylMusicLyrics,
+  parseHylMusicSearch,
+  trustedMusicMediaUrl,
+  type HylMusicAudio,
+} from "./music-source";
 
 const WORKS_KEY = "portfolio:works:v1";
 const PROFILE_KEY = "portfolio:profile:v1";
@@ -13,6 +26,9 @@ const MAX_GITHUB_HTML_BYTES = 512 * 1024;
 const MAX_CONFIG_BYTES = 96 * 1024;
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 50 * 1024 * 1024;
+const MAX_LYRIC_BYTES = 256 * 1024;
+const MAX_MUSIC_SOURCE_JSON_BYTES = 768 * 1024;
+const MAX_MUSIC_IMPORT_BYTES = 4 * 1024;
 const MAX_LOGIN_BYTES = 1024;
 const SESSION_COOKIE = "elin_admin_session";
 const SESSION_SECONDS = 30 * 24 * 60 * 60;
@@ -20,6 +36,7 @@ const LOCATION_CACHE_HEADERS = { "Cache-Control": "private, no-store, max-age=0"
 const IMAGE_TYPES: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
+  "image/jpg": "jpg",
   "image/webp": "webp",
   "image/gif": "gif",
 };
@@ -37,6 +54,7 @@ const AUDIO_TYPES: Record<string, string> = {
   "audio/flac": "flac",
   "audio/x-flac": "flac",
 };
+const HYL_SEARCH_LIMIT = 10;
 
 type WorksConfig = {
   projects: ReturnType<typeof normalizeProjects>;
@@ -345,9 +363,9 @@ function githubUsername(profileUrl: string): string | null {
   }
 }
 
-async function readLimitedText(response: Response, maxBytes: number): Promise<string> {
+async function readLimitedText(response: Response, maxBytes: number, tooLargeMessage = "响应内容过大"): Promise<string> {
   const contentLength = Number(response.headers.get("Content-Length") || 0);
-  if (contentLength > maxBytes) throw new Error("GitHub contribution response is too large");
+  if (contentLength > maxBytes) throw new Error(tooLargeMessage);
   if (!response.body) return "";
 
   const reader = response.body.getReader();
@@ -360,7 +378,7 @@ async function readLimitedText(response: Response, maxBytes: number): Promise<st
     bytesRead += value.byteLength;
     if (bytesRead > maxBytes) {
       await reader.cancel("Response exceeded size limit");
-      throw new Error("GitHub contribution response is too large");
+      throw new Error(tooLargeMessage);
     }
     result += decoder.decode(value, { stream: true });
   }
@@ -444,7 +462,7 @@ async function publicGithubContributions(env: Env): Promise<Response> {
       return json({ error: "GitHub 贡献数据格式异常" }, { status: 502, headers: { "Cache-Control": "no-store" } });
     }
 
-    const data = parseGithubContributions(await readLimitedText(response, MAX_GITHUB_HTML_BYTES), username);
+    const data = parseGithubContributions(await readLimitedText(response, MAX_GITHUB_HTML_BYTES, "GitHub contribution response is too large"), username);
     await env.WORKS.put(cacheKey, JSON.stringify(data), { expirationTtl: CONTRIBUTIONS_TTL_SECONDS });
     return json(data, { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=600" } });
   } catch (error) {
@@ -563,8 +581,7 @@ async function uploadMusic(request: Request, env: Env): Promise<Response> {
   if (contentLength > MAX_AUDIO_BYTES) return json({ error: "音频不能超过 50 MB" }, { status: 413 });
   if (!request.body) return json({ error: "没有收到音频内容" }, { status: 400 });
 
-  const now = new Date();
-  const key = `music/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${crypto.randomUUID()}.${extension}`;
+  const key = datedMusicKey(extension);
   const encodedName = request.headers.get("X-File-Name") || "";
   let originalName = "audio";
   try { originalName = decodeURIComponent(encodedName).slice(0, 180) || "audio"; } catch { originalName = "audio"; }
@@ -580,6 +597,286 @@ async function uploadMusic(request: Request, env: Env): Promise<Response> {
   }
   if (!result) return json({ error: "音频上传未完成" }, { status: 500 });
   return json({ key, url: `/media/${key}`, originalName, size: result.size, contentType }, { status: 201 });
+}
+
+function datedMusicKey(extension: string): string {
+  const now = new Date();
+  return `music/${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}/${crypto.randomUUID()}.${extension}`;
+}
+
+async function uploadMusicImage(request: Request, env: Env): Promise<Response> {
+  const contentType = (request.headers.get("Content-Type") || "").split(";")[0].toLowerCase();
+  const extension = IMAGE_TYPES[contentType];
+  if (!extension) return json({ error: "封面只支持 PNG、JPEG、WebP 和 GIF" }, { status: 415 });
+  const contentLength = Number(request.headers.get("Content-Length") || 0);
+  if (!Number.isSafeInteger(contentLength) || contentLength <= 0) return json({ error: "无法确认封面大小" }, { status: 411 });
+  if (contentLength > MAX_IMAGE_BYTES) return json({ error: "封面不能超过 5 MB" }, { status: 413 });
+  if (!request.body) return json({ error: "没有收到封面内容" }, { status: 400 });
+
+  const key = datedMusicKey(extension);
+  const object = await env.MEDIA.put(key, request.body, {
+    httpMetadata: { contentType, cacheControl: "public, max-age=31536000, immutable" },
+    customMetadata: { mediaRole: "music-cover" },
+  });
+  if (!object) return json({ error: "封面上传未完成" }, { status: 500 });
+  return json({ key, url: `/media/${key}`, size: object.size, contentType }, { status: 201 });
+}
+
+async function uploadMusicLyric(request: Request, env: Env): Promise<Response> {
+  const contentType = (request.headers.get("Content-Type") || "").split(";")[0].toLowerCase();
+  if (contentType !== "text/plain") return json({ error: "歌词只支持 UTF-8 的 LRC 或 TXT 文件" }, { status: 415 });
+  const contentLength = Number(request.headers.get("Content-Length") || 0);
+  if (!Number.isSafeInteger(contentLength) || contentLength <= 0) return json({ error: "无法确认歌词大小" }, { status: 411 });
+  if (contentLength > MAX_LYRIC_BYTES) return json({ error: "歌词不能超过 256 KB" }, { status: 413 });
+  if (!request.body) return json({ error: "没有收到歌词内容" }, { status: 400 });
+
+  const key = datedMusicKey("lrc");
+  const object = await env.MEDIA.put(key, request.body, {
+    httpMetadata: { contentType: "text/plain; charset=utf-8", cacheControl: "public, max-age=31536000, immutable" },
+    customMetadata: { mediaRole: "music-lyric" },
+  });
+  if (!object) return json({ error: "歌词上传未完成" }, { status: 500 });
+  return json({ key, url: `/media/${key}`, size: object.size, contentType: "text/plain" }, { status: 201 });
+}
+
+async function hylMusicJson(env: Env, pathname: string, search: Record<string, string>, maxBytes = MAX_MUSIC_SOURCE_JSON_BYTES): Promise<unknown> {
+  const url = new URL(pathname, HYL_MUSIC_INTERNAL_ORIGIN);
+  for (const [key, value] of Object.entries(search)) url.searchParams.set(key, value);
+  const init = { headers: { Accept: "application/json", "User-Agent": "elin-os-music-import" }, signal: AbortSignal.timeout(20_000) };
+  let response: Response;
+  try {
+    response = await env.HYL_MUSIC.fetch(new Request(url, init));
+  } catch {
+    const publicUrl = new URL(pathname, HYL_MUSIC_PUBLIC_ORIGIN);
+    for (const [key, value] of Object.entries(search)) publicUrl.searchParams.set(key, value);
+    response = await fetch(new Request(publicUrl, init));
+  }
+  if (!response.ok) throw new Error(`小琳音乐站暂时不可用（${response.status}）`);
+  const contentType = response.headers.get("Content-Type") || "";
+  if (!contentType.toLowerCase().includes("application/json")) throw new Error("小琳音乐站返回了异常数据");
+  const raw = await readLimitedText(response, maxBytes, "小琳音乐站返回的数据过大");
+  try { return JSON.parse(raw) as unknown; }
+  catch { throw new Error("小琳音乐站返回了无法解析的数据"); }
+}
+
+async function searchHylMusic(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const query = (url.searchParams.get("q") || "").trim();
+  if (!query) return json({ error: "请输入歌名、歌手或专辑" }, { status: 400 });
+  if (query.length > 80) return json({ error: "搜索关键词不能超过 80 个字符" }, { status: 400 });
+  const requestedLimit = Number(url.searchParams.get("limit") || HYL_SEARCH_LIMIT);
+  const limit = Number.isSafeInteger(requestedLimit) ? Math.max(1, Math.min(HYL_SEARCH_LIMIT, requestedLimit)) : HYL_SEARCH_LIMIT;
+  try {
+    const result = await hylMusicJson(env, "/api/cloudsearch", {
+      keywords: query,
+      type: "1",
+      limit: String(limit),
+      offset: "0",
+    });
+    return json({ query, tracks: parseHylMusicSearch(result).slice(0, limit) }, { headers: { "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    console.warn(JSON.stringify({ message: "xiaolin music search failed", error: error instanceof Error ? error.message : String(error) }));
+    return json({ error: error instanceof Error ? error.message : "小琳音乐站搜索失败" }, { status: 502 });
+  }
+}
+
+type RemoteMusicAsset = {
+  response: Response;
+  contentType: string;
+  size: number;
+  extension: string;
+};
+
+async function fetchTrustedMusicAsset(
+  sourceUrl: string,
+  kind: "audio" | "image",
+  maxBytes: number,
+  audio?: HylMusicAudio,
+): Promise<RemoteMusicAsset> {
+  let currentUrl = trustedMusicMediaUrl(sourceUrl);
+  for (let redirectCount = 0; redirectCount <= 3; redirectCount += 1) {
+    const response = await fetch(currentUrl, {
+      redirect: "manual",
+      headers: { Accept: kind === "audio" ? "audio/*" : "image/*", "User-Agent": "elin-os-music-import" },
+      signal: AbortSignal.timeout(45_000),
+    });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("Location");
+      await response.body?.cancel();
+      if (!location || redirectCount === 3) throw new Error(`${kind === "audio" ? "音频" : "图片"}重定向异常`);
+      currentUrl = trustedMusicMediaUrl(new URL(location, currentUrl).toString());
+      continue;
+    }
+    if (!response.ok || !response.body) {
+      await response.body?.cancel();
+      throw new Error(`${kind === "audio" ? "音频" : "图片"}下载失败`);
+    }
+    const size = Number(response.headers.get("Content-Length") || 0);
+    if (!Number.isSafeInteger(size) || size <= 0) {
+      await response.body.cancel();
+      throw new Error(`无法确认${kind === "audio" ? "音频" : "图片"}大小`);
+    }
+    if (size > maxBytes) {
+      await response.body.cancel();
+      throw new Error(`${kind === "audio" ? "音频" : "图片"}文件过大`);
+    }
+    const contentType = (response.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
+    const extension = kind === "audio" ? audio?.extension || "" : IMAGE_TYPES[contentType] || "";
+    if (kind === "audio" ? !audio || !isSupportedAudioContentType(contentType, audio.extension) : !extension) {
+      await response.body.cancel();
+      throw new Error(`${kind === "audio" ? "音频" : "图片"}格式不受支持`);
+    }
+    if (kind === "audio" && audio && audio.size !== size) {
+      await response.body.cancel();
+      throw new Error("音源声明的音频大小不一致");
+    }
+    return { response, contentType, size, extension };
+  }
+  throw new Error("媒体重定向次数过多");
+}
+
+async function putRemoteMusicAsset(
+  env: Env,
+  key: string,
+  asset: RemoteMusicAsset,
+  maxBytes: number,
+  metadata: Record<string, string>,
+): Promise<R2Object> {
+  if (!asset.response.body) throw new Error("媒体响应没有内容");
+  let seen = 0;
+  const stream = asset.response.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      seen += chunk.byteLength;
+      if (seen > maxBytes) throw new Error("媒体流超过大小限制");
+      controller.enqueue(chunk);
+    },
+  }));
+  const fixedLength = new FixedLengthStream(asset.size);
+  const pump = stream.pipeTo(fixedLength.writable);
+  const put = env.MEDIA.put(key, fixedLength.readable, {
+    httpMetadata: { contentType: asset.contentType, cacheControl: "public, max-age=31536000, immutable, no-transform" },
+    customMetadata: metadata,
+  });
+  const results = await Promise.allSettled([pump, put]);
+  const failure = results.find((result) => result.status === "rejected");
+  if (failure?.status === "rejected") throw failure.reason;
+  const object = (results[1] as PromiseFulfilledResult<R2Object>).value;
+  if (!object || object.size !== seen || seen !== asset.size) throw new Error("媒体写入不完整");
+  return object;
+}
+
+async function importHylMusic(request: Request, env: Env): Promise<Response> {
+  const contentLength = Number(request.headers.get("Content-Length") || 0);
+  if (!Number.isSafeInteger(contentLength) || contentLength <= 0) return json({ error: "导入请求格式错误" }, { status: 411 });
+  if (contentLength > MAX_MUSIC_IMPORT_BYTES) return json({ error: "导入请求过大" }, { status: 413 });
+  const body = await request.json<unknown>();
+  const rawSourceId = body && typeof body === "object" && !Array.isArray(body)
+    ? (body as { sourceId?: unknown }).sourceId
+    : undefined;
+  const sourceId = typeof rawSourceId === "string" && /^\d+$/.test(rawSourceId) ? Number(rawSourceId) : rawSourceId;
+  if (!Number.isSafeInteger(sourceId) || Number(sourceId) <= 0) return json({ error: "歌曲 ID 无效" }, { status: 400 });
+  const id = String(sourceId);
+  const cleanupKeys: string[] = [];
+
+  try {
+    const [detailResult, audioResult, lyricResult] = await Promise.all([
+      hylMusicJson(env, "/api/song/detail", { ids: id }, 256 * 1024),
+      hylMusicJson(env, "/api/song/url", { id, br: "128000" }, 128 * 1024),
+      hylMusicJson(env, "/api/lyric", { id }, MAX_MUSIC_SOURCE_JSON_BYTES),
+    ]);
+    const metadata = parseHylMusicDetail(detailResult, id);
+    const audio = parseHylMusicAudio(audioResult, id);
+    if (audio.size > MAX_AUDIO_BYTES) throw new Error("音频不能超过 50 MB");
+    const lyrics = parseHylMusicLyrics(lyricResult);
+
+    if (metadata.primaryArtistId && metadata.artist) {
+      try {
+        const artistResult = await hylMusicJson(env, "/api/cloudsearch", {
+          keywords: metadata.artist.split("、")[0], type: "100", limit: "10", offset: "0",
+        }, 256 * 1024);
+        metadata.artistAvatarUrl = parseHylArtistAvatar(artistResult, metadata.primaryArtistId);
+      } catch {
+        metadata.artistAvatarUrl = "";
+      }
+    }
+
+    const remoteRequests: Array<Promise<RemoteMusicAsset>> = [fetchTrustedMusicAsset(audio.url, "audio", MAX_AUDIO_BYTES, audio)];
+    if (metadata.coverUrl) remoteRequests.push(fetchTrustedMusicAsset(metadata.coverUrl, "image", MAX_IMAGE_BYTES));
+    const avatarSharesCover = Boolean(metadata.artistAvatarUrl && metadata.artistAvatarUrl === metadata.coverUrl);
+    if (metadata.artistAvatarUrl && !avatarSharesCover) remoteRequests.push(fetchTrustedMusicAsset(metadata.artistAvatarUrl, "image", MAX_IMAGE_BYTES));
+    const remoteResults = await Promise.allSettled(remoteRequests);
+    const failedDownload = remoteResults.find((result) => result.status === "rejected");
+    if (failedDownload?.status === "rejected") {
+      await Promise.all(remoteResults.map((result) => result.status === "fulfilled" ? result.value.response.body?.cancel() : undefined));
+      throw failedDownload.reason;
+    }
+    const remoteAssets = remoteResults.map((result) => (result as PromiseFulfilledResult<RemoteMusicAsset>).value);
+    const audioAsset = remoteAssets[0];
+    let nextAssetIndex = 1;
+    const coverAsset = metadata.coverUrl ? remoteAssets[nextAssetIndex++] : null;
+    const artistAsset = metadata.artistAvatarUrl && !avatarSharesCover ? remoteAssets[nextAssetIndex] : null;
+
+    const audioKey = datedMusicKey(audioAsset.extension);
+    const coverKey = coverAsset ? datedMusicKey(coverAsset.extension) : "";
+    const artistKey = artistAsset ? datedMusicKey(artistAsset.extension) : "";
+    const lyricPayload = JSON.stringify({
+      lrc: lyrics.lrc,
+      translatedLrc: lyrics.translatedLrc,
+      romanizedLrc: lyrics.romanizedLrc,
+    });
+    const lyricBytes = new TextEncoder().encode(lyricPayload).byteLength;
+    if (lyricBytes > MAX_LYRIC_BYTES) throw new Error("歌词内容超过 256 KB");
+    const lyricKey = lyrics.lrc || lyrics.translatedLrc || lyrics.romanizedLrc ? datedMusicKey("json") : "";
+    cleanupKeys.push(audioKey, ...[coverKey, artistKey, lyricKey].filter(Boolean));
+
+    const writes: Array<Promise<R2Object>> = [
+      putRemoteMusicAsset(env, audioKey, audioAsset, MAX_AUDIO_BYTES, { source: HYL_MUSIC_PROVIDER, sourceId: id, mediaRole: "audio" }),
+    ];
+    if (coverAsset && coverKey) writes.push(putRemoteMusicAsset(env, coverKey, coverAsset, MAX_IMAGE_BYTES, { source: HYL_MUSIC_PROVIDER, sourceId: id, mediaRole: "cover" }));
+    if (artistAsset && artistKey) writes.push(putRemoteMusicAsset(env, artistKey, artistAsset, MAX_IMAGE_BYTES, { source: HYL_MUSIC_PROVIDER, sourceId: id, mediaRole: "artist-avatar" }));
+    if (lyricKey) {
+      writes.push(env.MEDIA.put(lyricKey, lyricPayload, {
+        httpMetadata: { contentType: "application/json; charset=utf-8", cacheControl: "public, max-age=31536000, immutable" },
+        customMetadata: { source: HYL_MUSIC_PROVIDER, sourceId: id, mediaRole: "lyrics" },
+      }).then((object) => {
+        if (!object || object.size !== lyricBytes) throw new Error("歌词写入不完整");
+        return object;
+      }));
+    }
+    const writeResults = await Promise.allSettled(writes);
+    const failedWrite = writeResults.find((result) => result.status === "rejected");
+    if (failedWrite?.status === "rejected") {
+      await env.MEDIA.delete(cleanupKeys);
+      cleanupKeys.length = 0;
+      throw failedWrite.reason;
+    }
+
+    return json({
+      track: {
+        id: `xiaolin-${id}`,
+        name: metadata.name,
+        artist: metadata.artist,
+        album: metadata.album,
+        url: `/media/${audioKey}`,
+        coverUrl: coverKey ? `/media/${coverKey}` : "",
+        artistAvatarUrl: avatarSharesCover && coverKey ? `/media/${coverKey}` : artistKey ? `/media/${artistKey}` : "",
+        lyricUrl: lyricKey ? `/media/${lyricKey}` : "",
+        durationMs: metadata.durationMs || audio.durationMs,
+        sourceType: HYL_MUSIC_PROVIDER,
+        sourceId: id,
+        enabled: true,
+      },
+    }, { status: 201, headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    if (cleanupKeys.length) {
+      try { await env.MEDIA.delete(cleanupKeys); }
+      catch (cleanupError) {
+        console.error(JSON.stringify({ message: "xiaolin music cleanup failed", sourceId: id, error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError) }));
+      }
+    }
+    console.error(JSON.stringify({ message: "xiaolin music import failed", sourceId: id, error: error instanceof Error ? error.message : String(error) }));
+    return json({ error: error instanceof Error ? error.message : "歌曲导入失败" }, { status: 502 });
+  }
 }
 
 function mediaHeaders(object: R2Object): Headers {
@@ -654,6 +951,10 @@ export default {
         if (request.method === "PUT" && url.pathname === "/api/admin/profile") return saveProfile(request, env);
         if (request.method === "PUT" && url.pathname === "/api/admin/home") return saveHome(request, env);
         if (request.method === "POST" && url.pathname === "/api/admin/media") return uploadMedia(request, env);
+        if (request.method === "GET" && url.pathname === "/api/admin/music/search") return searchHylMusic(request, env);
+        if (request.method === "POST" && url.pathname === "/api/admin/music/import") return importHylMusic(request, env);
+        if (request.method === "POST" && url.pathname === "/api/admin/music/image") return uploadMusicImage(request, env);
+        if (request.method === "POST" && url.pathname === "/api/admin/music/lyric") return uploadMusicLyric(request, env);
         if (request.method === "POST" && url.pathname === "/api/admin/music") return uploadMusic(request, env);
         return json({ error: "接口不存在" }, { status: 404 });
       }
