@@ -43,10 +43,10 @@ export function makeConfig(profile, projects, home = defaultHome) {
       rightClickMessage: "为了浏览体验 本站禁止右键。",
     },
     changelog: [
-      { version: "v2.2.1", desc: "清理过时代码与资源，精简配置和构建" },
-      { version: "v2.2.0", desc: "新增交互式桌面组件与 R2 万万静听" },
-      { version: "v1.2.0", desc: "简介与作品由 Cloudflare KV 驱动" },
-      { version: "v1.0.0", desc: "极光作品集初版" },
+      { version: "v2.3.1", desc: "简化编辑提示，优化音乐添加体验" },
+      { version: "v2.3.0", desc: "万万静听支持搜索歌曲与同步歌词" },
+      { version: "v2.2.1", desc: "整理页面内容，提升访问体验" },
+      { version: "v2.2.0", desc: "新增互动桌面与万万静听" },
     ],
     music: { playlist },
   };

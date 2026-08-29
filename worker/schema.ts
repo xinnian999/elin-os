@@ -104,7 +104,7 @@ const DEFAULT_FOOTER: HomeConfig["footer"] = {
   filingText: "冀ICP备2025100393号-1",
   filingUrl: "https://beian.miit.gov.cn/",
   copyrightText: "Copyright © {year} Elin",
-  uiCreditText: "UI based on Perfect Home",
+  uiCreditText: "界面设计参考 Perfect Home",
   uiCreditUrl: "https://github.com/327261086/perfect-home",
 };
 
@@ -126,8 +126,18 @@ function safeUrl(value: unknown, field: string, allowLocal = false): string {
   } catch {
     throw new Error(`${field} 不是有效链接`);
   }
-  if (parsed.protocol !== "https:") throw new Error(`${field} 必须使用 HTTPS`);
+  if (parsed.protocol !== "https:") throw new Error(`${field} 请填写以 https:// 开头的安全链接`);
   return parsed.toString();
+}
+
+function creditText(value: unknown): string {
+  const normalized = stringValue(value, "界面署名", 120);
+  const legacy = normalized.match(/^UI\s+based\s+on\s+(.+)$/i);
+  if (!legacy) return normalized;
+  const source = legacy[1].trim();
+  return source.toLowerCase() === "perfect home"
+    ? "界面设计参考 Perfect Home"
+    : `界面设计：${source}`;
 }
 
 function normalizeFooter(value: unknown): HomeConfig["footer"] {
@@ -138,8 +148,8 @@ function normalizeFooter(value: unknown): HomeConfig["footer"] {
     filingText: stringValue(config.filingText ?? DEFAULT_FOOTER.filingText, "备案信息", 120),
     filingUrl: safeUrl(config.filingUrl ?? DEFAULT_FOOTER.filingUrl, "备案链接"),
     copyrightText: stringValue(config.copyrightText ?? DEFAULT_FOOTER.copyrightText, "版权信息", 160),
-    uiCreditText: stringValue(config.uiCreditText ?? DEFAULT_FOOTER.uiCreditText, "UI 署名", 120),
-    uiCreditUrl: safeUrl(config.uiCreditUrl ?? DEFAULT_FOOTER.uiCreditUrl, "UI 署名链接"),
+    uiCreditText: creditText(config.uiCreditText ?? DEFAULT_FOOTER.uiCreditText),
+    uiCreditUrl: safeUrl(config.uiCreditUrl ?? DEFAULT_FOOTER.uiCreditUrl, "界面署名链接"),
   };
 }
 
@@ -151,14 +161,14 @@ function musicMediaPath(value: unknown, field: string, required = false): string
     let parsed: URL;
     try { parsed = new URL(normalized); }
     catch { throw new Error(`${field} 不是有效链接`); }
-    if (parsed.protocol !== "https:") throw new Error(`${field} 必须使用 HTTPS`);
+    if (parsed.protocol !== "https:") throw new Error(`${field} 请填写以 https:// 开头的安全链接`);
     if (!new Set(["elin521.cn", "www.elin521.cn"]).has(parsed.hostname)) {
-      throw new Error(`${field} 必须使用在线编辑上传到 R2`);
+      throw new Error(`${field} 请通过在线编辑重新上传`);
     }
     pathname = parsed.pathname;
   }
   if (!/^\/media\/music\/\d{4}\/(0[1-9]|1[0-2])\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]+$/.test(pathname)) {
-    throw new Error(`${field} 必须使用在线编辑上传到 R2`);
+    throw new Error(`${field} 请通过在线编辑重新上传`);
   }
   return pathname;
 }
@@ -194,20 +204,20 @@ function normalizeMusic(value: unknown): HomeConfig["music"] {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("音乐配置格式错误");
   const music = value as Record<string, unknown>;
   const playlist = music.playlist === undefined ? [] : music.playlist;
-  if (!Array.isArray(playlist)) throw new Error("音乐列表必须是数组");
+  if (!Array.isArray(playlist)) throw new Error("音乐列表格式错误");
   if (playlist.length > MAX_MUSIC_TRACKS) throw new Error(`歌曲不能超过 ${MAX_MUSIC_TRACKS} 首`);
 
   const tracks = playlist.map((item, index): MusicTrack => {
     if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error(`第 ${index + 1} 首歌曲格式错误`);
     const track = item as Record<string, unknown>;
-    const id = stringValue(track.id ?? `track-${index + 1}`, `第 ${index + 1} 首歌曲 ID`, 80, true);
-    if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) throw new Error(`歌曲 ID“${id}”只能包含小写字母、数字和连字符`);
+    const id = stringValue(track.id ?? `track-${index + 1}`, `第 ${index + 1} 首歌曲标识`, 80, true);
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) throw new Error(`歌曲标识“${id}”只能包含小写字母、数字和连字符`);
     const sourceType = track.sourceType === undefined ? "manual" : stringValue(track.sourceType, `第 ${index + 1} 首歌曲来源`, 20, true);
     if (!new Set(["manual", "xiaolin"]).has(sourceType)) throw new Error(`第 ${index + 1} 首歌曲来源无效`);
     const sourceId = sourceType === "xiaolin"
-      ? stringValue(track.sourceId ?? "", `第 ${index + 1} 首歌曲来源 ID`, 24, true)
+      ? stringValue(track.sourceId ?? "", `第 ${index + 1} 首歌曲来源标识`, 24, true)
       : "";
-    if (sourceType === "xiaolin" && !/^\d+$/.test(sourceId)) throw new Error(`第 ${index + 1} 首歌曲来源 ID 无效`);
+    if (sourceType === "xiaolin" && !/^\d+$/.test(sourceId)) throw new Error(`第 ${index + 1} 首歌曲来源标识无效`);
     const url = musicAudioUrl(track.url ?? "", `第 ${index + 1} 首歌曲地址`);
     return {
       id,
@@ -225,7 +235,7 @@ function normalizeMusic(value: unknown): HomeConfig["music"] {
     };
   });
 
-  if (new Set(tracks.map((track) => track.id)).size !== tracks.length) throw new Error("歌曲 ID 不能重复");
+  if (new Set(tracks.map((track) => track.id)).size !== tracks.length) throw new Error("歌曲标识不能重复");
   const sourceIds = tracks.filter((track) => track.sourceType === "xiaolin").map((track) => track.sourceId);
   if (new Set(sourceIds).size !== sourceIds.length) throw new Error("不能重复添加同一首小琳音乐站歌曲");
   return { playlist: tracks };
@@ -247,7 +257,7 @@ function contactValue(value: unknown, type: Contact["type"], field: string): str
     throw new Error(`${field} 不是有效链接`);
   }
   if (!new Set(["https:", "tel:"]).has(parsed.protocol)) {
-    throw new Error(`${field} 仅支持 HTTPS 或电话链接`);
+    throw new Error(`${field} 仅支持安全网页链接或电话号码`);
   }
   return parsed.toString();
 }
@@ -281,7 +291,7 @@ function findContactPreset(contact: Record<string, unknown>): [ContactPresetId, 
 
 function normalizeContacts(value: unknown, profile: Record<string, unknown>): Contact[] {
   if (value === undefined) return fallbackContacts(profile);
-  if (!Array.isArray(value)) throw new Error("联系方式必须是数组");
+  if (!Array.isArray(value)) throw new Error("联系方式格式错误");
   if (value.length > MAX_CONTACTS) throw new Error(`联系方式不能超过 ${MAX_CONTACTS} 个`);
 
   const contacts: Contact[] = [];
@@ -364,8 +374,8 @@ function projectValue(value: unknown, index: number): Project {
   if (stack.length > 8) throw new Error(`${project.name || `第 ${index + 1} 个作品`}的技术标签不能超过 8 个`);
   if (details.length > MAX_DETAILS) throw new Error(`${project.name || `第 ${index + 1} 个作品`}的详情段落不能超过 ${MAX_DETAILS} 个`);
 
-  const id = stringValue(project.id, "项目 ID", 80, true);
-  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) throw new Error(`项目 ID“${id}”只能包含小写字母、数字和连字符`);
+  const id = stringValue(project.id, "作品标识", 80, true);
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(id)) throw new Error(`作品标识“${id}”只能包含小写字母、数字和连字符`);
 
   return {
     id,
@@ -392,12 +402,12 @@ function projectValue(value: unknown, index: number): Project {
 }
 
 export function normalizeProjects(value: unknown): Project[] {
-  if (!Array.isArray(value)) throw new Error("projects 必须是数组");
+  if (!Array.isArray(value)) throw new Error("作品列表格式错误");
   if (!value.length) throw new Error("至少保留一个作品");
   if (value.length > MAX_PROJECTS) throw new Error(`作品数量不能超过 ${MAX_PROJECTS} 个`);
   const projects = value.map(projectValue);
   const ids = new Set(projects.map((project) => project.id));
-  if (ids.size !== projects.length) throw new Error("项目 ID 不能重复");
+  if (ids.size !== projects.length) throw new Error("作品标识不能重复");
   if (projects.filter((project) => project.visible && project.featured).length > 1) throw new Error("只能设置一个对外展示的主项目");
   return projects;
 }

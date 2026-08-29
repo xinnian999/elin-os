@@ -138,7 +138,7 @@ export function parseHylMusicAudio(value: unknown, sourceId: string): HylMusicAu
     ? record(data.find((entry) => positiveInteger(record(entry)?.id) === expectedId))
     : null;
   if (!item || Number(item.code) !== 200 || item.freeTrialInfo) {
-    throw new Error("这首歌当前没有可完整导入的音频");
+    throw new Error("这首歌暂时无法导入");
   }
   const extension = cleanText(item.type, 12).toLowerCase() as HylMusicAudio["extension"];
   if (!Object.hasOwn(AUDIO_TYPE_BY_EXTENSION, extension)) throw new Error("音源返回了不支持的音频格式");

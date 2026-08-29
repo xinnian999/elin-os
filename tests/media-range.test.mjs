@@ -6,7 +6,7 @@ import { createServer } from 'vite'
 
 const root = fileURLToPath(new URL('..', import.meta.url))
 
-test('parses single byte ranges for R2 media responses', async (t) => {
+test('parses single byte ranges for saved media responses', async (t) => {
   const vite = await createServer({ root, logLevel: 'silent', server: { middlewareMode: true } })
   t.after(() => vite.close())
   const { parseSingleByteRange } = await vite.ssrLoadModule('/worker/media-range.ts')

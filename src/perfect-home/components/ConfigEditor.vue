@@ -9,7 +9,7 @@
       <div v-if="!isUnlocked" class="lock-screen">
         <div class="lock-icon">🔐</div>
         <strong>输入主页管理密码</strong>
-        <p>登录状态可保留 30 天，密码不会写入浏览器存储。</p>
+        <p>登录后 30 天内无需重复输入，密码不会保存在本机。</p>
         <input v-model="passwordInput" class="password-input" type="password" autocomplete="current-password"
           placeholder="请输入管理密码" @keyup.enter="unlock" />
         <button class="primary-btn" :disabled="busy" @click="unlock">{{ busy ? '验证中…' : '解锁编辑器' }}</button>
@@ -111,8 +111,8 @@
             <label>备案文字<input v-model="draft.home.footer.filingText" maxlength="100" /></label>
             <label>备案链接<input v-model="draft.home.footer.filingUrl" type="url" maxlength="500" placeholder="https://beian.miit.gov.cn/" /></label>
             <label class="wide">版权文案<input v-model="draft.home.footer.copyrightText" maxlength="120" placeholder="Copyright © {year} Elin" /></label>
-            <label>UI 署名文字<input v-model="draft.home.footer.uiCreditText" maxlength="100" /></label>
-            <label>UI 署名链接<input v-model="draft.home.footer.uiCreditUrl" type="url" maxlength="500" placeholder="https://github.com/…" /></label>
+            <label>界面署名文字<input v-model="draft.home.footer.uiCreditText" maxlength="100" /></label>
+            <label>界面署名链接<input v-model="draft.home.footer.uiCreditUrl" type="url" maxlength="500" placeholder="https://github.com/…" /></label>
           </div>
         </div>
 
@@ -126,17 +126,17 @@
 
           <div v-if="activeProject" class="project-form">
             <div class="form-grid">
-              <label>项目 ID<input v-model="activeProject.id" placeholder="lowercase-id" /></label>
+              <label>项目标识<input v-model="activeProject.id" placeholder="例如 my-project" /></label>
               <label>项目名称<input v-model="activeProject.name" /></label>
               <label>项目类型<input v-model="activeProject.eyebrow" /></label>
-              <label>技术栈（逗号分隔）<input :value="activeProject.stack.join(', ')" @input="setStack" /></label>
+              <label>使用技术（逗号分隔）<input :value="activeProject.stack.join(', ')" @input="setStack" /></label>
               <label class="wide">卡片简介<textarea v-model="activeProject.description" rows="2" /></label>
               <label class="wide">详情导语<textarea v-model="activeProject.longDescription" rows="3" /></label>
               <label class="wide">项目图片
                 <div class="upload-row"><input v-model="activeProject.image" /><label class="upload-btn">上传<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" @change="uploadImage" /></label></div>
               </label>
               <label class="wide">在线体验<input v-model="activeProject.previewUrl" type="url" /></label>
-              <label class="wide">GitHub 源码<input v-model="activeProject.githubUrl" type="url" /></label>
+              <label class="wide">GitHub 链接<input v-model="activeProject.githubUrl" type="url" /></label>
               <label class="wide">安装命令<input v-model="activeProject.installCommand" /></label>
               <div class="details-editor wide">
                 <div class="section-title"><span>详情段落</span><button type="button" class="mini-btn" :disabled="activeProject.details.length >= 6" @click="addDetail">＋ 添加</button></div>
@@ -161,7 +161,7 @@
             <div class="music-editor-header">
               <div>
                 <strong>万万静听歌单</strong>
-                <p>可从小琳音乐站完整导入，也可手动上传音频、封面和歌词；文件统一保存到 Cloudflare R2。</p>
+                <p>可从小琳音乐站导入歌曲，也可手动上传音频、封面和歌词。</p>
               </div>
               <label class="upload-btn music-upload-btn" :class="{ disabled: busy || draft.home.music.playlist.length >= 20 }">
                 <span>＋ 手动上传歌曲</span>
@@ -180,7 +180,7 @@
               <div class="music-search-heading">
                 <div>
                   <strong>搜索小琳音乐站</strong>
-                  <span>导入后会固化音频、专辑封面、歌手头像和歌词，不保存临时播放链接。</span>
+                  <span>导入后会保存歌曲、专辑封面、歌手头像和歌词，后续可直接播放。</span>
                 </div>
                 <a href="https://music.elin521.cn" target="_blank" rel="noreferrer">打开音乐站 ↗</a>
               </div>
@@ -210,7 +210,7 @@
                     :class="{ added: isSourceAdded(track.sourceId) }"
                     :disabled="isSourceAdded(track.sourceId) || importingSourceId === track.sourceId || busy || draft.home.music.playlist.length >= 20"
                     @click="importMusic(track)"
-                  >{{ isSourceAdded(track.sourceId) ? '已添加' : importingSourceId === track.sourceId ? '导入中…' : '导入到 R2' }}</button>
+                  >{{ isSourceAdded(track.sourceId) ? '已添加' : importingSourceId === track.sourceId ? '导入中…' : '导入' }}</button>
                 </article>
               </div>
             </section>
@@ -236,9 +236,9 @@
                   <label>歌手（可选）<input v-model="song.artist" maxlength="300" /></label>
                   <label class="wide">专辑（可选）<input v-model="song.album" maxlength="200" /></label>
                   <div class="music-source-field wide">
-                    <span>R2 音频</span>
+                    <span>歌曲文件</span>
                     <div class="upload-row">
-                      <input :value="musicSourceName(song.url)" class="source-input" aria-label="R2 音频文件" readonly />
+                      <input :value="song.url ? '歌曲文件已保存' : '尚未上传'" class="source-input" aria-label="歌曲文件" readonly />
                       <label class="upload-btn" :class="{ disabled: busy }">
                         <span>替换音频</span>
                         <input
@@ -260,8 +260,8 @@
                         <span v-else>♪</span>
                       </div>
                       <div class="music-asset-copy">
-                        <strong>{{ song.coverUrl ? '已保存到 R2' : song.artistAvatarUrl ? '已导入歌手头像' : '未设置' }}</strong>
-                        <small>{{ song.sourceType === 'xiaolin' && song.durationMs ? formatDurationMs(song.durationMs) : 'PNG / JPEG / WebP / GIF' }}</small>
+                        <strong>{{ song.coverUrl ? '封面已保存' : song.artistAvatarUrl ? '已导入歌手头像' : '未设置' }}</strong>
+                        <small>{{ song.sourceType === 'xiaolin' && song.durationMs ? formatDurationMs(song.durationMs) : '常见图片格式，最大 5 MB' }}</small>
                       </div>
                       <label class="upload-btn compact-upload" :class="{ disabled: busy }">
                         <span>{{ song.coverUrl ? '替换' : '上传' }}</span>
@@ -273,8 +273,8 @@
                     <span>歌词</span>
                     <div class="music-lyric-upload">
                       <div class="music-asset-copy">
-                        <strong>{{ song.lyricUrl ? '已保存到 R2' : '未设置' }}</strong>
-                        <small>{{ song.lyricUrl ? musicSourceName(song.lyricUrl) : 'UTF-8 LRC / TXT，最大 256 KB' }}</small>
+                        <strong>{{ song.lyricUrl ? '歌词已保存' : '未设置' }}</strong>
+                        <small>{{ song.lyricUrl ? '歌词文件已添加' : '支持 LRC / TXT，最大 256 KB' }}</small>
                       </div>
                       <label class="upload-btn compact-upload" :class="{ disabled: busy }">
                         <span>{{ song.lyricUrl ? '替换' : '上传' }}</span>
@@ -301,9 +301,9 @@
         <footer class="editor-footer">
           <span :class="['message', saveState === 'error' ? 'error' : '']">{{ status }}</span>
           <div class="footer-actions">
-            <button v-if="isLocal" class="sync-btn" :disabled="busy" @click="syncProduction">↻ 一键同步线上数据</button>
+            <button v-if="isLocal" class="sync-btn" :disabled="busy" @click="syncProduction">↻ 读取线上内容</button>
             <button class="secondary-btn" @click="$emit('close')">取消</button>
-            <button class="primary-btn" :disabled="busy" @click="save">{{ busy ? '处理中…' : '保存到云端' }}</button>
+            <button class="primary-btn" :disabled="busy" @click="save">{{ busy ? '处理中…' : '保存修改' }}</button>
           </div>
         </footer>
       </div>
@@ -331,7 +331,7 @@ const passwordInput = ref('')
 const isUnlocked = ref(false)
 const busy = ref(false)
 const error = ref('')
-const status = ref('修改后将同步到 Cloudflare KV')
+const status = ref('修改将在保存后生效')
 const saveState = ref('idle')
 const contactInputs = ref([])
 const musicSearchQuery = ref('')
@@ -350,7 +350,7 @@ const defaultFooter = {
   filingText: '冀ICP备2025100393号-1',
   filingUrl: 'https://beian.miit.gov.cn/',
   copyrightText: 'Copyright © {year} Elin',
-  uiCreditText: 'UI based on Perfect Home',
+  uiCreditText: '界面设计参考 Perfect Home',
   uiCreditUrl: 'https://github.com/327261086/perfect-home',
 }
 const normalizeDraftSong = (song) => ({
@@ -385,7 +385,7 @@ const typewriterText = computed({
 const request = async (url, options = {}) => {
   const response = await fetch(url, { ...options, credentials: 'same-origin', headers: { ...(options.headers || {}) } })
   const data = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(data.error || `请求失败（${response.status}）`)
+  if (!response.ok) throw new Error(data.error || `操作失败（${response.status}）`)
   return data
 }
 const formatDurationMs = (milliseconds) => {
@@ -423,12 +423,12 @@ const importMusic = async (track) => {
   importingSourceId.value = String(track.sourceId)
   busy.value = true
   saveState.value = 'idle'
-  status.value = `正在完整导入《${track.name}》到 R2…`
+  status.value = `正在导入《${track.name}》…`
   try {
     const data = await request('/api/admin/music/import', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sourceId: String(track.sourceId) }),
     })
-    if (!data.track) throw new Error('音源导入接口未返回歌曲信息')
+    if (!data.track) throw new Error('没有获取到歌曲信息，请稍后重试')
     draft.home.music.playlist.push(normalizeDraftSong(data.track))
     status.value = `《${data.track.name}》已导入音频、封面和歌词，点击保存后更新主页歌单`
   } catch (cause) {
@@ -444,7 +444,7 @@ const unlock = async () => {
   busy.value = true; error.value = ''
   try {
     const data = await request('/api/admin/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: passwordInput.value }) })
-    if (data.ok !== true) throw new Error('登录接口未正确响应')
+    if (data.ok !== true) throw new Error('登录失败，请稍后重试')
     passwordInput.value = ''
     isUnlocked.value = true
   }
@@ -536,7 +536,7 @@ const uploadSong = async (event, song = null) => {
   if (file.size > 50 * 1024 * 1024) {
     status.value = '音频不能超过 50 MB'; saveState.value = 'error'; event.target.value = ''; return
   }
-  busy.value = true; saveState.value = 'idle'; status.value = `正在上传 ${file.name} 到 R2…`
+  busy.value = true; saveState.value = 'idle'; status.value = `正在上传 ${file.name}…`
   try {
     const data = await request('/api/admin/music', {
       method: 'POST',
@@ -554,7 +554,7 @@ const uploadSong = async (event, song = null) => {
         url: data.url,
       }))
     }
-    status.value = '音频已上传到 R2，点击保存后更新主页歌单'
+    status.value = '音频已上传，点击保存后更新主页歌单'
   } catch (cause) { status.value = cause.message; saveState.value = 'error' }
   finally { busy.value = false; event.target.value = '' }
 }
@@ -564,13 +564,13 @@ const uploadSongImage = async (event, song) => {
   if (file.size > 5 * 1024 * 1024) {
     status.value = '封面不能超过 5 MB'; saveState.value = 'error'; event.target.value = ''; return
   }
-  busy.value = true; saveState.value = 'idle'; status.value = `正在上传 ${file.name} 到 R2…`
+  busy.value = true; saveState.value = 'idle'; status.value = `正在上传 ${file.name}…`
   try {
     const data = await request('/api/admin/music/image', {
       method: 'POST', headers: { 'Content-Type': file.type, 'X-File-Name': encodeURIComponent(file.name) }, body: file,
     })
     song.coverUrl = data.url
-    status.value = '封面已上传到 R2，点击保存后生效'
+    status.value = '封面已上传，点击保存后生效'
   } catch (cause) { status.value = cause.message; saveState.value = 'error' }
   finally { busy.value = false; event.target.value = '' }
 }
@@ -583,13 +583,13 @@ const uploadSongLyric = async (event, song) => {
   if (!/\.(lrc|txt)$/i.test(file.name)) {
     status.value = '歌词只支持 LRC 或 TXT 文件'; saveState.value = 'error'; event.target.value = ''; return
   }
-  busy.value = true; saveState.value = 'idle'; status.value = `正在上传 ${file.name} 到 R2…`
+  busy.value = true; saveState.value = 'idle'; status.value = `正在上传 ${file.name}…`
   try {
     const data = await request('/api/admin/music/lyric', {
       method: 'POST', headers: { 'Content-Type': 'text/plain; charset=utf-8', 'X-File-Name': encodeURIComponent(file.name) }, body: file,
     })
     song.lyricUrl = data.url
-    status.value = '歌词已上传到 R2，点击保存后生效'
+    status.value = '歌词已上传，点击保存后生效'
   } catch (cause) { status.value = cause.message; saveState.value = 'error' }
   finally { busy.value = false; event.target.value = '' }
 }
@@ -600,12 +600,8 @@ const moveSong = (index, direction) => {
   draft.home.music.playlist.splice(target, 0, song)
 }
 const removeSong = (index) => { draft.home.music.playlist.splice(index, 1) }
-const musicSourceName = (url = '') => {
-  try { return decodeURIComponent(url.split('/').pop() || url) }
-  catch { return url }
-}
 const syncProduction = async () => {
-  busy.value = true; saveState.value = 'idle'; status.value = '正在从线上 KV 读取最新配置…'
+  busy.value = true; saveState.value = 'idle'; status.value = '正在读取线上最新内容…'
   try {
     const syncOrigin = `http://${window.location.hostname === 'localhost' ? 'localhost' : '127.0.0.1'}:8790`
     const response = await fetch(`${syncOrigin}/api/sync-production`, { method: 'POST' })
@@ -624,7 +620,7 @@ const syncProduction = async () => {
 }
 const save = async () => {
   syncContactInputs()
-  busy.value = true; saveState.value = 'idle'; status.value = '正在同步简介、主页与作品…'
+  busy.value = true; saveState.value = 'idle'; status.value = '正在保存简介、主页与作品…'
   try {
     draft.profile.githubUrl = contactFor('github')?.value || ''
     draft.profile.email = contactFor('email')?.value || ''

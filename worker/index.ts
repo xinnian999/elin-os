@@ -624,7 +624,7 @@ async function uploadMusicImage(request: Request, env: Env): Promise<Response> {
 
 async function uploadMusicLyric(request: Request, env: Env): Promise<Response> {
   const contentType = (request.headers.get("Content-Type") || "").split(";")[0].toLowerCase();
-  if (contentType !== "text/plain") return json({ error: "歌词只支持 UTF-8 的 LRC 或 TXT 文件" }, { status: 415 });
+  if (contentType !== "text/plain") return json({ error: "请选择 LRC 或 TXT 歌词文件" }, { status: 415 });
   const contentLength = Number(request.headers.get("Content-Length") || 0);
   if (!Number.isSafeInteger(contentLength) || contentLength <= 0) return json({ error: "无法确认歌词大小" }, { status: 411 });
   if (contentLength > MAX_LYRIC_BYTES) return json({ error: "歌词不能超过 256 KB" }, { status: 413 });
@@ -676,7 +676,7 @@ async function searchHylMusic(request: Request, env: Env): Promise<Response> {
     return json({ query, tracks: parseHylMusicSearch(result).slice(0, limit) }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.warn(JSON.stringify({ message: "xiaolin music search failed", error: error instanceof Error ? error.message : String(error) }));
-    return json({ error: error instanceof Error ? error.message : "小琳音乐站搜索失败" }, { status: 502 });
+    return json({ error: "暂时无法搜索歌曲，请稍后重试" }, { status: 502 });
   }
 }
 
@@ -767,14 +767,14 @@ async function putRemoteMusicAsset(
 
 async function importHylMusic(request: Request, env: Env): Promise<Response> {
   const contentLength = Number(request.headers.get("Content-Length") || 0);
-  if (!Number.isSafeInteger(contentLength) || contentLength <= 0) return json({ error: "导入请求格式错误" }, { status: 411 });
-  if (contentLength > MAX_MUSIC_IMPORT_BYTES) return json({ error: "导入请求过大" }, { status: 413 });
+  if (!Number.isSafeInteger(contentLength) || contentLength <= 0) return json({ error: "无法读取要导入的歌曲" }, { status: 411 });
+  if (contentLength > MAX_MUSIC_IMPORT_BYTES) return json({ error: "歌曲信息异常，请重新选择" }, { status: 413 });
   const body = await request.json<unknown>();
   const rawSourceId = body && typeof body === "object" && !Array.isArray(body)
     ? (body as { sourceId?: unknown }).sourceId
     : undefined;
   const sourceId = typeof rawSourceId === "string" && /^\d+$/.test(rawSourceId) ? Number(rawSourceId) : rawSourceId;
-  if (!Number.isSafeInteger(sourceId) || Number(sourceId) <= 0) return json({ error: "歌曲 ID 无效" }, { status: 400 });
+  if (!Number.isSafeInteger(sourceId) || Number(sourceId) <= 0) return json({ error: "歌曲信息无效，请重新选择" }, { status: 400 });
   const id = String(sourceId);
   const cleanupKeys: string[] = [];
 
@@ -875,7 +875,7 @@ async function importHylMusic(request: Request, env: Env): Promise<Response> {
       }
     }
     console.error(JSON.stringify({ message: "xiaolin music import failed", sourceId: id, error: error instanceof Error ? error.message : String(error) }));
-    return json({ error: error instanceof Error ? error.message : "歌曲导入失败" }, { status: 502 });
+    return json({ error: "歌曲导入失败，请稍后重试" }, { status: 502 });
   }
 }
 
@@ -956,10 +956,10 @@ export default {
         if (request.method === "POST" && url.pathname === "/api/admin/music/image") return uploadMusicImage(request, env);
         if (request.method === "POST" && url.pathname === "/api/admin/music/lyric") return uploadMusicLyric(request, env);
         if (request.method === "POST" && url.pathname === "/api/admin/music") return uploadMusic(request, env);
-        return json({ error: "接口不存在" }, { status: 404 });
+        return json({ error: "请求的功能不存在" }, { status: 404 });
       }
 
-      if (url.pathname.startsWith("/api/")) return json({ error: "接口不存在" }, { status: 404 });
+      if (url.pathname.startsWith("/api/")) return json({ error: "请求的功能不存在" }, { status: 404 });
       return env.ASSETS.fetch(request);
     } catch (error) {
       const message = error instanceof Error ? error.message : "未知错误";

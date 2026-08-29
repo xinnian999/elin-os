@@ -48,5 +48,5 @@ test('normalizes and validates Xiaolin music source responses', async (t) => {
 
   assert.throws(() => source.trustedMusicMediaUrl('https://music.126.net.evil.example/song.mp3'), /不受信任/)
   assert.throws(() => source.trustedMusicMediaUrl('https://user:pass@m801.music.126.net/song.mp3'), /不受信任/)
-  assert.throws(() => source.parseHylMusicAudio({ data: [{ id: 1973665667, code: 404, url: null }] }, '1973665667'), /没有可完整导入/)
+  assert.throws(() => source.parseHylMusicAudio({ data: [{ id: 1973665667, code: 404, url: null }] }, '1973665667'), /暂时无法导入/)
 })

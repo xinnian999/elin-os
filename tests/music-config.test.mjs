@@ -22,7 +22,7 @@ const baseHome = {
   },
 }
 
-test('normalizes and maps the R2-backed music playlist', async (t) => {
+test('normalizes and maps the saved music playlist', async (t) => {
   const vite = await createServer({ root, logLevel: 'silent', server: { middlewareMode: true } })
   t.after(() => vite.close())
   const [{ normalizeHome }, { makeConfig }] = await Promise.all([
@@ -78,7 +78,7 @@ test('normalizes and maps the R2-backed music playlist', async (t) => {
 
   assert.throws(
     () => normalizeHome({ ...baseHome, music: { playlist: [{ id: 'bad', name: 'Bad', artist: '', url: 'https://example.com/song.mp3' }] } }),
-    /必须使用在线编辑上传到 R2/,
+    /请通过在线编辑重新上传/,
   )
   assert.throws(
     () => normalizeHome({
@@ -90,7 +90,7 @@ test('normalizes and maps the R2-backed music playlist', async (t) => {
         }],
       },
     }),
-    /必须使用在线编辑上传到 R2/,
+    /请通过在线编辑重新上传/,
   )
   assert.throws(
     () => normalizeHome({
@@ -102,7 +102,7 @@ test('normalizes and maps the R2-backed music playlist', async (t) => {
         ],
       },
     }),
-    /歌曲 ID 不能重复/,
+    /歌曲标识不能重复/,
   )
   assert.throws(
     () => normalizeHome({
@@ -115,7 +115,7 @@ test('normalizes and maps the R2-backed music playlist', async (t) => {
         }],
       },
     }),
-    /必须使用在线编辑上传到 R2/,
+    /请通过在线编辑重新上传/,
   )
   assert.throws(
     () => normalizeHome({

@@ -14,9 +14,9 @@ const store = mainStore()
 // 响应式读取打字机文案
 const defaultLines = [
   '欢迎来到我的主页 👋',
-  '代码改变世界 🌍',
+  '把想法变成美好体验 🌍',
   '保持好奇，持续学习 ✨',
-  '生活不止眼前的 Bug 🐛'
+  '认真生活，也认真创造 🌿'
 ]
 
 const lines = computed(() => {

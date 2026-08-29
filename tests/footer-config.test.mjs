@@ -26,7 +26,7 @@ const defaultFooter = {
   filingText: '冀ICP备2025100393号-1',
   filingUrl: 'https://beian.miit.gov.cn/',
   copyrightText: 'Copyright © {year} Elin',
-  uiCreditText: 'UI based on Perfect Home',
+  uiCreditText: '界面设计参考 Perfect Home',
   uiCreditUrl: 'https://github.com/327261086/perfect-home',
 }
 
@@ -40,6 +40,13 @@ test('normalizes and maps configurable footer metadata', async (t) => {
 
   await t.test('fills defaults for legacy home data without footer metadata', () => {
     assert.deepEqual(normalizeHome(baseHome).footer, defaultFooter)
+  })
+
+  await t.test('replaces the old interface credit wording', () => {
+    assert.equal(normalizeHome({
+      ...baseHome,
+      footer: { ...defaultFooter, uiCreditText: 'UI based on elin-os' },
+    }).footer.uiCreditText, '界面设计：elin-os')
   })
 
   await t.test('preserves normalized custom values and explicitly empty values', () => {
@@ -90,14 +97,14 @@ test('normalizes and maps configurable footer metadata', async (t) => {
         ...baseHome,
         footer: { ...defaultFooter, filingUrl: 'http://beian.example.com' },
       }),
-      /必须使用 HTTPS/,
+      /安全链接/,
     )
     assert.throws(
       () => normalizeHome({
         ...baseHome,
         footer: { ...defaultFooter, uiCreditUrl: 'javascript:alert(1)' },
       }),
-      /必须使用 HTTPS/,
+      /安全链接/,
     )
   })
 
