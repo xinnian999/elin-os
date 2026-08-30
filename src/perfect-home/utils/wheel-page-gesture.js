@@ -1,8 +1,8 @@
-const DEFAULT_THRESHOLD = 18
+const DEFAULT_THRESHOLD = 16
 const DEFAULT_COLLECTION_IDLE_MS = 180
-const DEFAULT_NEW_GESTURE_IDLE_MS = 420
-// MainRight animates for 620ms; the guard keeps the current page stable through the transition.
-export const WHEEL_PAGE_TRANSITION_LOCK_MS = 680
+const DEFAULT_NEW_GESTURE_IDLE_MS = 220
+// Keep one inertial tail from advancing twice without making deliberate follow-up swipes feel blocked.
+export const WHEEL_PAGE_TRANSITION_LOCK_MS = 300
 const DEFAULT_MIN_DELTA = 1
 const DEFAULT_CANDIDATE_GAP_MS = 80
 const DEFAULT_DISCRETE_GESTURE_DELTA = 80
@@ -10,7 +10,7 @@ const DEFAULT_DISCRETE_GESTURE_DELTA = 80
 export function createWheelAxisLock({
   idleMs = DEFAULT_NEW_GESTURE_IDLE_MS,
   horizontalOnly = false,
-  horizontalDominanceRatio = 1.25,
+  horizontalDominanceRatio = 1.1,
 } = {}) {
   let axis = null
   let lastEventAt = null
@@ -24,13 +24,11 @@ export function createWheelAxisLock({
       if (lastEventAt === null || now - lastEventAt > idleMs) axis = null
       lastEventAt = now
       const isClearlyHorizontal = Math.abs(x) > Math.abs(y) * horizontalDominanceRatio
+      if (horizontalOnly) return isClearlyHorizontal ? x : 0
       if (!axis) {
         if (Math.abs(x) < 1 && Math.abs(y) < 1) return 0
-        axis = horizontalOnly
-          ? (isClearlyHorizontal ? 'x' : 'y')
-          : (Math.abs(x) >= Math.abs(y) ? 'x' : 'y')
+        axis = Math.abs(x) >= Math.abs(y) ? 'x' : 'y'
       }
-      if (horizontalOnly && (axis !== 'x' || !isClearlyHorizontal)) return 0
       return axis === 'x' ? x : y
     },
 

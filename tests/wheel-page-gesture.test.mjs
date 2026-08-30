@@ -38,19 +38,18 @@ test('the axis lock preserves vertical-wheel fallback and resets after silence',
   assert.equal(axisLock.pick(20, -5, 500), 20)
 })
 
-test('horizontal-only axis lock leaves a vertical wheel stream to native scrolling', () => {
+test('horizontal-only detection leaves vertical scrolling native without suppressing the next swipe', () => {
   const axisLock = createWheelAxisLock({ horizontalOnly: true })
 
   assert.equal(axisLock.pick(2, 30, 0), 0)
-  assert.equal(axisLock.pick(20, 5, 16), 0)
-  assert.equal(axisLock.pick(20, 5, 500), 20)
+  assert.equal(axisLock.pick(20, 5, 16), 20)
 })
 
-test('horizontal-only axis lock rejects an ambiguous diagonal gesture', () => {
+test('horizontal-only detection ignores an ambiguous first sample but accepts the clear follow-up', () => {
   const axisLock = createWheelAxisLock({ horizontalOnly: true })
 
   assert.equal(axisLock.pick(13, 12, 0), 0)
-  assert.equal(axisLock.pick(24, 4, 16), 0)
+  assert.equal(axisLock.pick(24, 4, 16), 24)
 })
 
 test('horizontal-only axis lock releases vertical scrolling after a horizontal page gesture', () => {
@@ -115,6 +114,13 @@ test('a discrete wheel event after a quiet gap remains responsive', () => {
 
   assert.equal(pushAndCommit(gesture, 100, 0), 1)
   assert.equal(pushAndCommit(gesture, 100, 1_000), 1)
+})
+
+test('a deliberate follow-up swipe works as soon as the short transition finishes', () => {
+  const gesture = createWheelPageGesture()
+
+  assert.equal(pushAndCommit(gesture, 100, 0), 1)
+  assert.equal(pushAndCommit(gesture, 100, WHEEL_PAGE_TRANSITION_LOCK_MS + 20), 1)
 })
 
 test('small wheel deltas accumulate before changing page', () => {

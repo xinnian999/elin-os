@@ -224,8 +224,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   display: flex;
-  transition: transform 0.62s cubic-bezier(.22, .78, .2, 1);
-  will-change: transform;
+  transition: transform 0.28s cubic-bezier(.25, 1, .5, 1);
 }
 
 .desktop-page {
