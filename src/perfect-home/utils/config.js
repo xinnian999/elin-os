@@ -43,6 +43,7 @@ export function makeConfig(profile, projects, home = defaultHome) {
       rightClickMessage: "为了浏览体验 本站禁止右键。",
     },
     changelog: [
+      { version: "v2.3.7", desc: "优化播放器按钮与歌词间距" },
       { version: "v2.3.6", desc: "优化滑动翻页响应" },
       { version: "v2.3.5", desc: "优化播放列表入口与滚动" },
       { version: "v2.3.4", desc: "优化卡片光影，支持切换播放列表" },
