@@ -16,6 +16,19 @@
         </div>
         <div class="profile-desc">{{ identity }}<span v-if="location"> · {{ location }}</span></div>
       </div>
+      <button
+        type="button"
+        class="profile-works-button"
+        aria-label="打开作品集"
+        aria-haspopup="dialog"
+        aria-controls="works-browser-dialog"
+        :aria-expanded="browserOpen"
+        @click="openWorksBrowser"
+      >
+        <span class="profile-works-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <span>作品集</span>
+        <b aria-hidden="true">↗</b>
+      </button>
     </div>
 
     <!-- 翻转卡片：站点简介 / 更新日志 -->
@@ -143,9 +156,12 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { mainStore } from '../store'
+import { useWorksBrowser } from '../composables/works-browser'
 import BrandIcon from '../components/BrandIcon.vue'
 
 const store = mainStore()
+const worksBrowser = useWorksBrowser()
+const browserOpen = worksBrowser.isOpen
 const showSettings = ref(false)
 const qrContact = ref(null)
 const qrImageFailed = ref(false)
@@ -158,6 +174,7 @@ const openQrCode = (contact) => {
   qrImageFailed.value = false
 }
 const closeQrCode = () => { qrContact.value = null; qrImageFailed.value = false }
+const openWorksBrowser = (event) => worksBrowser.open(event.currentTarget)
 
 // 响应式读取站点配置
 const siteConfig = computed(() => store.config?.site || {})
@@ -254,7 +271,7 @@ const avatarIsImage = computed(() => !!avatarUrl.value)
   object-fit: cover;
 }
 
-.profile-info { flex: 1; }
+.profile-info { min-width: 0; flex: 1; }
 
 .logo-text {
   display: flex;
@@ -265,7 +282,34 @@ const avatarIsImage = computed(() => !!avatarUrl.value)
 
 .main { font-size: 1.05rem; font-weight: 700; color: #fff; }
 .sub { font-size: 0.75rem; color: rgba(255,255,255,0.5); }
-.profile-desc { font-size: 0.7rem; color: rgba(255,255,255,0.6); }
+.profile-desc { overflow: hidden; color: rgba(255,255,255,0.6); font-size: 0.7rem; text-overflow: ellipsis; white-space: nowrap; }
+
+.profile-works-button {
+  height: 42px;
+  flex: none;
+  padding: 0 2px 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  color: rgba(255,255,255,.64);
+  background: transparent;
+  font: inherit;
+  font-size: .65rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .2s ease;
+}
+.profile-works-button:hover,
+.profile-works-button:focus-visible {
+  color: #fff;
+}
+.profile-works-button:focus-visible { outline: 1px solid var(--theme-primary); outline-offset: 3px; }
+.profile-works-button b { color: var(--theme-primary); font-size: .75rem; font-weight: 500; transition: transform .2s ease; }
+.profile-works-button:hover b,
+.profile-works-button:focus-visible b { transform: translate(1px,-1px); }
+.profile-works-icon { width: 12px; height: 12px; display: grid; grid-template-columns: repeat(2,1fr); gap: 2px; }
+.profile-works-icon i { border-radius: 1px; background: color-mix(in srgb, var(--theme-primary) 72%, #fff); opacity: .8; }
 
 /* 翻转卡片 */
 .flip-card-container {
@@ -419,5 +463,5 @@ const avatarIsImage = computed(() => !!avatarUrl.value)
 .qr-dialog { position: relative; width: min(370px, 90vw); box-sizing: border-box; padding: 28px; text-align: center; color: #fff; background: rgba(12,18,31,.97); border: 1px solid color-mix(in srgb, var(--theme-primary) 42%, transparent); border-radius: 22px; box-shadow: 0 24px 80px rgba(0,0,0,.55), 0 0 45px var(--theme-glow); }
 .qr-dialog h2 { margin: 6px 0 18px; font-size: 1.2rem; }.qr-eyebrow { color: var(--theme-primary); font-size: .72rem; letter-spacing: .18em; }.qr-canvas { aspect-ratio: 1; display: grid; place-items: center; padding: 12px; background: #fff; border-radius: 16px; overflow: hidden; }.qr-canvas img { width: 100%; height: 100%; display: block; }.qr-canvas span { color: #526074; font-size: .8rem; }.qr-dialog p { margin: 14px 0 0; overflow-wrap: anywhere; color: rgba(255,255,255,.55); font-size: .7rem; line-height: 1.6; }.qr-close { position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border: 1px solid rgba(255,255,255,.12); border-radius: 9px; color: #fff; background: rgba(255,255,255,.06); cursor: pointer; }
 
-@media (max-width: 520px) { .social-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .profile-works-button { height: 44px; } .social-grid { grid-template-columns: repeat(2, 1fr); } }
 </style>

@@ -40,8 +40,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, provide, watch } from 'vue'
 import { mainStore } from './store'
+import { createWorksBrowserController, worksBrowserKey } from './composables/works-browser'
 import { loadConfig } from './utils/config'
 import { initSecurityFeatures, initDataIntegrity } from './utils/security'
 import Announcement from './components/Announcement.vue'
@@ -56,6 +57,8 @@ import CustomCursor from './components/CustomCursor.vue'
 import ConfigEditor from './components/ConfigEditor.vue'
 
 const store = mainStore()
+const worksBrowser = createWorksBrowserController()
+provide(worksBrowserKey, worksBrowser)
 const mobileOpen = ref(false)
 const config = ref(null)
 const showConfigEditor = ref(false)
