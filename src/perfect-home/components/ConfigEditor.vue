@@ -118,9 +118,29 @@
 
         <div v-if="activeTab === 'projects'" class="tab-content projects-tab">
           <div class="project-list">
-            <button v-for="(project, index) in draft.projects" :key="project.id || index" :class="{ active: projectIndex === index }" @click="projectIndex = index">
-              <span>{{ project.name || '未命名作品' }}</span><small>{{ project.visible ? '展示' : '隐藏' }}</small>
-            </button>
+            <p class="project-sort-hint"><span class="drag-dots" aria-hidden="true">⠿</span> 按住把手拖动排序</p>
+            <div class="project-list-items">
+              <div
+                v-for="(project, index) in draft.projects"
+                :key="project.id || index"
+                :data-project-index="index"
+                :class="['project-list-item', { active: projectIndex === index, dragging: draggingProjectIndex === index }]"
+              >
+                <button
+                  type="button"
+                  class="project-drag-handle"
+                  :aria-label="`调整${project.name || '未命名作品'}的顺序`"
+                  title="按住拖动；也可使用上下方向键"
+                  @click.stop
+                  @keydown.up.prevent="moveProject(index, -1)"
+                  @keydown.down.prevent="moveProject(index, 1)"
+                  @pointerdown="startProjectDrag($event, index)"
+                ><span class="drag-dots" aria-hidden="true">⠿</span></button>
+                <button type="button" class="project-select" :aria-pressed="projectIndex === index" @click="projectIndex = index">
+                  <span>{{ project.name || '未命名作品' }}</span><small>{{ project.visible ? '展示' : '隐藏' }}</small>
+                </button>
+              </div>
+            </div>
             <button class="add-project" @click="addProject">＋ 添加作品</button>
           </div>
 
@@ -299,7 +319,7 @@
         </div>
 
         <footer class="editor-footer">
-          <span :class="['message', saveState === 'error' ? 'error' : '']">{{ status }}</span>
+          <span role="status" aria-live="polite" :class="['message', saveState === 'error' ? 'error' : '']">{{ status }}</span>
           <div class="footer-actions">
             <button v-if="isLocal" class="sync-btn" :disabled="busy" @click="syncProduction">↻ 读取线上内容</button>
             <button class="secondary-btn" @click="$emit('close')">取消</button>
@@ -317,6 +337,7 @@ import { mainStore } from '../store'
 import BrandIcon from './BrandIcon.vue'
 import { CONTACT_PRESETS, normalizePresetContacts, syncContactInputValues } from '../utils/contact-presets'
 import { makeConfigFromSaveResults } from '../utils/config'
+import { moveArrayItem } from '../utils/reorder'
 
 const emit = defineEmits(['close'])
 const store = mainStore()
@@ -327,6 +348,7 @@ const tabs = [
 ]
 const activeTab = ref('profile')
 const projectIndex = ref(0)
+const draggingProjectIndex = ref(-1)
 const passwordInput = ref('')
 const isUnlocked = ref(false)
 const busy = ref(false)
@@ -341,6 +363,7 @@ const musicSearchError = ref('')
 const musicSearchHint = ref('')
 const importingSourceId = ref('')
 let musicSearchController = null
+let projectDragPointerId = null
 const isLocal = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(window.location.hostname)
 
 const clone = (value) => JSON.parse(JSON.stringify(value))
@@ -463,6 +486,39 @@ const addProject = () => {
 const removeProject = () => {
   if (draft.projects.length <= 1) { status.value = '至少保留一个作品'; saveState.value = 'error'; return }
   draft.projects.splice(projectIndex.value, 1); projectIndex.value = Math.max(0, projectIndex.value - 1)
+}
+const moveProject = (index, direction) => {
+  const targetIndex = index + direction
+  if (!moveArrayItem(draft.projects, index, targetIndex)) return
+  projectIndex.value = targetIndex
+  if (draggingProjectIndex.value >= 0) draggingProjectIndex.value = targetIndex
+  saveState.value = 'idle'
+  status.value = '作品顺序已调整，保存后生效'
+}
+const moveDraggedProject = (event) => {
+  if (event.pointerId !== projectDragPointerId || draggingProjectIndex.value < 0) return
+  const target = document.elementFromPoint(event.clientX, event.clientY)?.closest?.('[data-project-index]')
+  const targetIndex = Number(target?.dataset.projectIndex)
+  if (!target || !target.closest('.project-list-items') || !Number.isInteger(targetIndex)) return
+  moveProject(draggingProjectIndex.value, targetIndex - draggingProjectIndex.value)
+}
+const finishProjectDrag = (event) => {
+  if (event.pointerId !== projectDragPointerId) return
+  projectDragPointerId = null
+  draggingProjectIndex.value = -1
+  window.removeEventListener('pointermove', moveDraggedProject)
+  window.removeEventListener('pointerup', finishProjectDrag)
+  window.removeEventListener('pointercancel', finishProjectDrag)
+}
+const startProjectDrag = (event, index) => {
+  if (event.button !== 0 || projectDragPointerId !== null) return
+  event.preventDefault()
+  projectIndex.value = index
+  draggingProjectIndex.value = index
+  projectDragPointerId = event.pointerId
+  window.addEventListener('pointermove', moveDraggedProject)
+  window.addEventListener('pointerup', finishProjectDrag)
+  window.addEventListener('pointercancel', finishProjectDrag)
 }
 const setStack = (event) => { activeProject.value.stack = event.target.value.split(',').map((item) => item.trim()).filter(Boolean) }
 const setFeatured = () => { if (activeProject.value.featured) draft.projects.forEach((item, index) => { if (index !== projectIndex.value) item.featured = false }) }
@@ -637,7 +693,13 @@ const save = async () => {
 const enableContextMenu = () => { document.oncontextmenu = null; document.body.style.userSelect = 'auto' }
 const restoreContextMenu = () => { if (store.config?.security?.disableRightClick) document.oncontextmenu = () => false }
 onMounted(() => { enableContextMenu(); restoreSession() })
-onUnmounted(() => { musicSearchController?.abort(); restoreContextMenu() })
+onUnmounted(() => {
+  musicSearchController?.abort()
+  window.removeEventListener('pointermove', moveDraggedProject)
+  window.removeEventListener('pointerup', finishProjectDrag)
+  window.removeEventListener('pointercancel', finishProjectDrag)
+  restoreContextMenu()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -649,9 +711,9 @@ onUnmounted(() => { musicSearchController?.abort(); restoreContextMenu() })
 .lock-screen { margin: auto; width: min(380px,90%); display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }.lock-screen p { margin: 0; color: rgba(255,255,255,.58); font-size: .84rem; }.lock-icon { font-size: 48px; }
 .password-input,input,textarea,select { width: 100%; box-sizing: border-box; padding: 10px 12px; color: #fff; background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.14); border-radius: 8px; outline: none; }input:focus,textarea:focus,select:focus { border-color: var(--theme-primary); }
 .editor-content { min-height: 0; flex: 1; display: flex; flex-direction: column; }.editor-tabs { display: flex; gap: 8px; padding: 12px 16px; overflow-x: auto; border-bottom: 1px solid rgba(255,255,255,.1); }
-.editor-tabs button,.project-list button { flex: none; padding: 8px 14px; color: rgba(255,255,255,.72); background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; cursor: pointer; }.editor-tabs button.active,.project-list button.active { color: var(--theme-primary); border-color: var(--theme-primary); background: rgba(0,212,255,.14); }
+.editor-tabs button,.project-select,.add-project { flex: none; padding: 8px 14px; color: rgba(255,255,255,.72); background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; cursor: pointer; }.editor-tabs button.active { color: var(--theme-primary); border-color: var(--theme-primary); background: rgba(0,212,255,.14); }
 .tab-content { min-height: 0; flex: 1; padding: 18px; overflow: auto; }.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }.form-grid>label { display: grid; gap: 7px; color: rgba(255,255,255,.65); font-size: .8rem; }.wide { grid-column: 1/-1; }textarea { resize: vertical; }
-.projects-tab { display: grid; grid-template-columns: 190px 1fr; gap: 18px; }.project-list { display: flex; flex-direction: column; gap: 8px; }.project-list button { display: flex; justify-content: space-between; gap: 8px; text-align: left; }.project-list small { color: rgba(255,255,255,.4); }.project-form { min-width: 0; }
+.projects-tab { display: grid; grid-template-columns: 210px 1fr; gap: 18px; }.project-list { display: flex; flex-direction: column; gap: 8px; }.project-sort-hint { display: flex; align-items: center; gap: 6px; margin: 0 2px 2px; color: rgba(255,255,255,.42); font-size: .68rem; }.project-list-items { display: flex; flex-direction: column; gap: 8px; }.project-list-item { min-width: 0; display: grid; grid-template-columns: 34px minmax(0,1fr); border: 1px solid rgba(255,255,255,.1); border-radius: 8px; background: rgba(255,255,255,.05); transition: border-color .16s ease,background .16s ease,transform .16s ease,box-shadow .16s ease; }.project-list-item.active { color: var(--theme-primary); border-color: var(--theme-primary); background: rgba(0,212,255,.14); }.project-list-item.dragging { z-index: 1; transform: scale(1.025); border-color: color-mix(in srgb,var(--theme-primary) 80%,#fff); background: rgba(0,212,255,.2); box-shadow: 0 10px 24px rgba(0,0,0,.28); }.project-drag-handle { display: grid; place-items: center; padding: 0; color: rgba(255,255,255,.38); background: transparent; border: 0; border-right: 1px solid rgba(255,255,255,.08); border-radius: 7px 0 0 7px; cursor: grab; touch-action: none; }.project-drag-handle:hover,.project-drag-handle:focus-visible,.project-list-item.active .project-drag-handle { color: var(--theme-primary); }.project-drag-handle:active { cursor: grabbing; }.project-drag-handle:focus-visible { outline: 2px solid var(--theme-primary); outline-offset: -2px; }.drag-dots { font-size: 1.05rem; line-height: 1; }.project-select { min-width: 0; display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; text-align: left; border: 0; border-radius: 0 7px 7px 0; background: transparent; }.project-select span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.project-list small { flex: none; color: rgba(255,255,255,.4); }.add-project { display: flex; justify-content: flex-start; width: 100%; }.project-form { min-width: 0; }
 .switches { display: flex!important; align-items: center; gap: 20px!important; }.switches label { display: flex; align-items: center; gap: 7px; }.switches input { width: auto; }.upload-row { display: flex; gap: 8px; }.upload-btn { position: relative; flex: none; display: inline-flex; align-items: center; justify-content: center; padding: 10px 14px; border: 0; border-radius: 8px; color: var(--theme-primary); background: rgba(0,212,255,.12); cursor: pointer; font: inherit; overflow: hidden; }.upload-btn:focus-within { outline: 2px solid var(--theme-primary); outline-offset: 2px; }.upload-btn.disabled { opacity: .5; cursor: not-allowed; }.file-input-overlay { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; opacity: 0; cursor: pointer; }.file-input-overlay:disabled { cursor: not-allowed; }
 .details-editor { display: grid; gap: 10px; }.section-title { display: flex; align-items: center; justify-content: space-between; color: rgba(255,255,255,.65); font-size: .8rem; }.detail-row { display: grid; grid-template-columns: 150px 1fr auto; gap: 8px; align-items: start; }.mini-btn,.detail-remove { padding: 7px 10px; border: 1px solid rgba(0,212,255,.25); border-radius: 7px; color: var(--theme-primary); background: rgba(0,212,255,.1); cursor: pointer; }.detail-remove { color: #ff7199; border-color: rgba(255,113,153,.25); background: rgba(255,113,153,.1); }.empty-hint { margin: 0; color: rgba(255,255,255,.4); font-size: .8rem; }
 .music-editor { display: grid; gap: 14px; }.music-editor-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-bottom: 4px; }.music-editor-header>div { display: grid; gap: 5px; }.music-editor-header strong { color: rgba(255,255,255,.9); font-size: .92rem; }.music-editor-header p { margin: 0; color: rgba(255,255,255,.48); font-size: .74rem; }.music-upload-btn { align-self: center; white-space: nowrap; }.music-empty { margin: 8px 0 0; padding: 32px 18px; border: 1px dashed rgba(255,255,255,.14); border-radius: 12px; color: rgba(255,255,255,.45); text-align: center; font-size: .8rem; }.music-track-list { display: grid; gap: 12px; }.music-track-card { padding: 14px; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; background: rgba(255,255,255,.025); }.music-track-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }.music-track-index { color: var(--theme-primary); font-size: .72rem; font-weight: 750; font-variant-numeric: tabular-nums; }.music-track-state { display: flex; align-items: center; gap: 7px; color: rgba(255,255,255,.65); font-size: .76rem; }.music-track-state input { width: auto; }.music-track-actions { display: flex; gap: 6px; margin-left: auto; }.music-track-actions button { min-width: 30px; height: 30px; padding: 0 8px; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; color: rgba(255,255,255,.7); background: rgba(255,255,255,.06); cursor: pointer; }.music-track-actions button:hover:not(:disabled) { color: var(--theme-primary); border-color: rgba(0,212,255,.35); }.music-track-actions .remove-song { color: #ff7199; border-color: rgba(255,113,153,.22); }.music-track-fields { gap: 10px 12px; }.music-source-field { display: grid; gap: 7px; color: rgba(255,255,255,.65); font-size: .8rem; }.source-input { color: rgba(255,255,255,.48); text-overflow: ellipsis; }
@@ -662,6 +724,6 @@ onUnmounted(() => { musicSearchController?.abort(); restoreContextMenu() })
 .contact-preset-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }.contact-preset { min-width: 0; padding: 12px; border: 1px solid rgba(255,255,255,.09); border-radius: 12px; background: rgba(255,255,255,.025); transition: border-color .2s ease,background .2s ease,box-shadow .2s ease; }.contact-preset.enabled { border-color: color-mix(in srgb,var(--contact-color) 42%,rgba(255,255,255,.1)); background: linear-gradient(135deg,color-mix(in srgb,var(--contact-color) 10%,transparent),rgba(255,255,255,.025)); box-shadow: inset 0 1px 0 rgba(255,255,255,.035); }.contact-preset-head { display: grid; grid-template-columns: 30px 1fr auto auto; align-items: center; gap: 9px; }.contact-brand-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; color: var(--contact-color); background: color-mix(in srgb,var(--contact-color) 13%,rgba(255,255,255,.04)); }.contact-brand-icon svg { width: 17px; height: 17px; }.contact-brand-name { color: rgba(255,255,255,.86); font-size: .78rem; font-weight: 650; }.contact-order-actions { display: flex; gap: 4px; }.contact-order-actions button { width: 26px; height: 26px; padding: 0; border: 1px solid rgba(255,255,255,.12); border-radius: 7px; color: rgba(255,255,255,.68); background: rgba(255,255,255,.06); cursor: pointer; }.contact-order-actions button:hover:not(:disabled) { color: var(--theme-primary); border-color: color-mix(in srgb,var(--theme-primary) 45%,transparent); background: color-mix(in srgb,var(--theme-primary) 10%,transparent); }.contact-order-actions button:disabled { opacity: .25; cursor: default; }.contact-toggle { width: 36px; height: 20px; padding: 2px; border: 0; border-radius: 99px; background: rgba(255,255,255,.14); cursor: pointer; transition: background .2s ease; }.contact-toggle span { display: block; width: 16px; height: 16px; border-radius: 50%; background: rgba(255,255,255,.72); transition: transform .2s ease,background .2s ease; }.contact-toggle[aria-checked="true"] { background: var(--theme-gradient); }.contact-toggle[aria-checked="true"] span { transform: translateX(16px); background: #fff; }.contact-preset-body { min-height: 40px; display: flex; align-items: center; gap: 9px; margin-top: 11px; }.contact-preset-body>input { height: 38px; font-size: .74rem; }.contact-upload { flex: none; padding: 9px 11px; border-radius: 8px; color: var(--contact-color); background: color-mix(in srgb,var(--contact-color) 12%,transparent); font-size: .72rem; cursor: pointer; }.contact-upload input { display: none; }.contact-empty { color: rgba(255,255,255,.35); font-size: .68rem; }.contact-qr-preview { width: 40px; height: 40px; flex: none; padding: 3px; box-sizing: border-box; object-fit: contain; background: #fff; border-radius: 8px; }
 .primary-btn,.secondary-btn,.danger-btn { padding: 9px 18px; border: 0; border-radius: 8px; color: #fff; cursor: pointer; }.primary-btn { background: var(--theme-gradient); }.secondary-btn { margin-right: 8px; background: rgba(255,255,255,.1); }.danger-btn { margin-top: 18px; background: rgba(255,50,100,.24); }button:disabled { opacity: .55; cursor: wait; }.message { min-height: 1em; color: rgba(255,255,255,.6); font-size: .82rem; }.message.error { color: #ff7199; }
 .footer-actions { display: flex; align-items: center; gap: 8px; }.footer-actions .secondary-btn { margin-right: 0; }.sync-btn { margin-right: 6px; padding: 9px 13px; border: 1px solid rgba(0,212,255,.28); border-radius: 8px; color: var(--theme-primary); background: rgba(0,212,255,.09); cursor: pointer; }
-@media (max-width:700px) { .config-editor-overlay { padding: 8px; }.config-editor { width: 100%; height: 94vh; }.form-grid { grid-template-columns: 1fr; }.wide { grid-column: auto; }.projects-tab { display: block; }.project-list { flex-direction: row; overflow-x: auto; margin-bottom: 16px; }.detail-row { grid-template-columns: 1fr; }.contact-preset-grid,.music-search-results { grid-template-columns: 1fr; }.music-editor-header,.music-search-heading { align-items: flex-start; flex-direction: column; }.music-search-heading a { align-self: flex-start; }.music-track-head { flex-wrap: wrap; }.music-track-actions { width: 100%; margin-left: 0; }.editor-footer { align-items: flex-start; flex-direction: column; }.footer-actions { width: 100%; flex-wrap: wrap; }.sync-btn { margin-right: auto; } }
+@media (max-width:700px) { .config-editor-overlay { padding: 8px; }.config-editor { width: 100%; height: 94vh; }.form-grid { grid-template-columns: 1fr; }.wide { grid-column: auto; }.projects-tab { display: block; }.project-list { margin-bottom: 16px; }.project-list-items { flex-direction: row; overflow-x: auto; padding: 2px 2px 8px; }.project-list-item { min-width: 180px; }.add-project { width: auto; }.detail-row { grid-template-columns: 1fr; }.contact-preset-grid,.music-search-results { grid-template-columns: 1fr; }.music-editor-header,.music-search-heading { align-items: flex-start; flex-direction: column; }.music-search-heading a { align-self: flex-start; }.music-track-head { flex-wrap: wrap; }.music-track-actions { width: 100%; margin-left: 0; }.editor-footer { align-items: flex-start; flex-direction: column; }.footer-actions { width: 100%; flex-wrap: wrap; }.sync-btn { margin-right: auto; } }
 @media (max-width:460px) { .music-search-result { grid-template-columns: 40px minmax(0,1fr); }.search-cover { width: 40px; height: 40px; }.import-song-btn { grid-column: 1/-1; width: 100%; }.music-search-form { grid-template-columns: 1fr; }.music-search-btn { min-height: 40px; }.music-visual-upload,.music-lyric-upload { flex-wrap: wrap; }.compact-upload { margin-left: auto; } }
 </style>
