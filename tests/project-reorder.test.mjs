@@ -26,11 +26,15 @@ test('ignores invalid or unchanged reorder requests', () => {
 })
 
 test('wires pointer and keyboard sorting into the works editor', async () => {
-  const source = await readFile(`${root}/src/perfect-home/components/ConfigEditor.vue`, 'utf8')
+  const [source, configSource] = await Promise.all([
+    readFile(`${root}/src/perfect-home/components/ConfigEditor.vue`, 'utf8'),
+    readFile(`${root}/src/perfect-home/utils/config.js`, 'utf8'),
+  ])
 
   assert.match(source, /@pointerdown="startProjectDrag\(\$event, index\)"/)
   assert.match(source, /@keydown\.up\.prevent="moveProject\(index, -1\)"/)
   assert.match(source, /@keydown\.down\.prevent="moveProject\(index, 1\)"/)
   assert.match(source, /作品顺序已调整，保存后生效/)
   assert.match(source, /JSON\.stringify\(\{ projects: draft\.projects \}\)/)
+  assert.match(configSource, /v2\.3\.10[\s\S]+作品支持拖拽调整展示顺序/)
 })
